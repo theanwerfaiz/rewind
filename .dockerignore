@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
+data
+rewind-test-runs
+*.log
+npm-debug.log*

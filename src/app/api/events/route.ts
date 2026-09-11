@@ -1,0 +1,267 @@
+import { NextRequest, NextResponse } from "next/server";
+import db from "@/lib/db";
+
+export const runtime = "nodejs";
+
+type EventStatus = "success" | "error" | "neutral";
+
+type CreateEventInput = {
+  type: string;
+  title: string;
+  status?: EventStatus;
+  duration?: string;
+  source?: string;
+  traceId?: string;
+  requestId?: string;
+  sessionId?: string;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+  payload?: unknown;
+};
+
+function serializeEvent(row: Record<string, any>) {
+  return {
+    id: row.id,
+    timestamp: row.timestamp,
+    type: row.type,
+    title: row.title,
+    status: row.status,
+    duration: row.duration,
+    source: row.source,
+    traceId: row.trace_id,
+    requestId: row.request_id,
+    sessionId: row.session_id,
+    userId: row.user_id,
+    metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    payload: row.payload ? JSON.parse(row.payload) : undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+
+    const search = searchParams.get("search")?.trim() ?? "";
+
+    const type = searchParams.get("type")?.trim() ?? "";
+
+    const requestedLimit = Number(searchParams.get("limit") ?? "100");
+
+    const limit = Math.min(
+      Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 100, 1),
+      500,
+    );
+
+    let rows: Record<string, any>[];
+
+    if (search && type) {
+      rows = db
+        .prepare(
+          `
+          SELECT *
+          FROM events
+          WHERE
+            type = ?
+            AND (
+              title LIKE ?
+              OR id LIKE ?
+              OR request_id LIKE ?
+              OR user_id LIKE ?
+            )
+          ORDER BY timestamp DESC
+          LIMIT ?
+        `,
+        )
+        .all(
+          type,
+          `%${search}%`,
+          `%${search}%`,
+          `%${search}%`,
+          `%${search}%`,
+          limit,
+        ) as Record<string, any>[];
+    } else if (search) {
+      rows = db
+        .prepare(
+          `
+          SELECT *
+          FROM events
+          WHERE
+            title LIKE ?
+            OR id LIKE ?
+            OR type LIKE ?
+            OR request_id LIKE ?
+            OR user_id LIKE ?
+          ORDER BY timestamp DESC
+          LIMIT ?
+        `,
+        )
+        .all(
+          `%${search}%`,
+          `%${search}%`,
+          `%${search}%`,
+          `%${search}%`,
+          `%${search}%`,
+          limit,
+        ) as Record<string, any>[];
+    } else if (type) {
+      rows = db
+        .prepare(
+          `
+          SELECT *
+          FROM events
+          WHERE type = ?
+          ORDER BY timestamp DESC
+          LIMIT ?
+        `,
+        )
+        .all(type, limit) as Record<string, any>[];
+    } else {
+      rows = db
+        .prepare(
+          `
+          SELECT *
+          FROM events
+          ORDER BY timestamp DESC
+          LIMIT ?
+        `,
+        )
+        .all(limit) as Record<string, any>[];
+    }
+
+    return NextResponse.json({
+      events: rows.map(serializeEvent),
+      count: rows.length,
+    });
+  } catch (error) {
+    console.error("Failed to fetch events:", error);
+
+    return NextResponse.json(
+      {
+        error: "Failed to fetch events",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = (await request.json()) as CreateEventInput;
+
+    if (!body.type || typeof body.type !== "string") {
+      return NextResponse.json(
+        {
+          error: "Event type is required",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (!body.title || typeof body.title !== "string") {
+      return NextResponse.json(
+        {
+          error: "Event title is required",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const id = `evt_${crypto.randomUUID()}`;
+
+    const timestamp = new Date().toISOString();
+
+    const createdAt = new Date().toISOString();
+
+    const status = body.status ?? "neutral";
+
+    const insert = db.prepare(`
+      INSERT INTO events (
+        id,
+        timestamp,
+        type,
+        title,
+        status,
+        duration,
+        source,
+        trace_id,
+        request_id,
+        session_id,
+        user_id,
+        metadata,
+        payload,
+        created_at
+      )
+      VALUES (
+        @id,
+        @timestamp,
+        @type,
+        @title,
+        @status,
+        @duration,
+        @source,
+        @trace_id,
+        @request_id,
+        @session_id,
+        @user_id,
+        @metadata,
+        @payload,
+        @created_at
+      )
+    `);
+
+    insert.run({
+      id,
+      timestamp,
+      type: body.type,
+      title: body.title,
+      status,
+      duration: body.duration ?? null,
+      source: body.source ?? null,
+      trace_id: body.traceId ?? null,
+      request_id: body.requestId ?? null,
+      session_id: body.sessionId ?? null,
+      user_id: body.userId ?? null,
+      metadata: body.metadata ? JSON.stringify(body.metadata) : null,
+      payload: body.payload !== undefined ? JSON.stringify(body.payload) : null,
+      created_at: createdAt,
+    });
+
+    const created = db
+      .prepare(
+        `
+          SELECT *
+          FROM events
+          WHERE id = ?
+        `,
+      )
+      .get(id) as Record<string, any>;
+
+    return NextResponse.json(
+      {
+        event: serializeEvent(created),
+      },
+      {
+        status: 201,
+      },
+    );
+  } catch (error) {
+    console.error("Failed to create event:", error);
+
+    return NextResponse.json(
+      {
+        error: "Failed to create event",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
