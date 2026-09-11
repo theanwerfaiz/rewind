@@ -1558,9 +1558,9 @@ curl http://localhost:3000/api/events
 
 # License
 
-Rewind is open source.
+Rewind is open source software licensed under the MIT License.
 
-License details will be added before the first public release.
+See the [LICENSE](LICENSE) file for the full license text.
 
 ---
 
