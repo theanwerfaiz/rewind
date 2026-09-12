@@ -330,4 +330,121 @@ describe("withRewindCapture", () => {
 
     expect(handler).toHaveBeenCalledTimes(1);
   });
+
+  it("captures request content type, size, and user agent", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_http_metadata",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "http.request",
+      title: "POST /api/test",
+      status: "success",
+      duration: "10ms",
+      source: "next-http",
+    });
+
+    const requestBody = JSON.stringify({
+      message: "hello",
+      value: 42,
+    });
+
+    const request = new NextRequest(
+      "http://localhost:3000/api/test?source=e2e",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(
+            new TextEncoder().encode(requestBody).byteLength,
+          ),
+          "user-agent": "Rewind-Test-Agent",
+          "x-request-id": "req_metadata_1",
+        },
+        body: requestBody,
+      },
+    );
+
+    const handler = withRewindCapture(async () => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      );
+    });
+
+    await handler(request);
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+
+    const capturedInput = captureMock.mock.calls[0][0];
+
+    expect(capturedInput.metadata).toMatchObject({
+      environment: expect.any(String),
+      method: "POST",
+      path: "/api/test?source=e2e",
+      contentType: "application/json",
+      requestSizeBytes: new TextEncoder().encode(requestBody).byteLength,
+      userAgent: "Rewind-Test-Agent",
+    });
+
+    captureMock.mockRestore();
+  });
+
+  it("captures response content type and response size", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_response_metadata",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "http.request",
+      title: "GET /api/test",
+      status: "success",
+      duration: "10ms",
+      source: "next-http",
+    });
+
+    const responseBody = JSON.stringify({
+      message: "response",
+      success: true,
+    });
+
+    const request = new NextRequest("http://localhost:3000/api/test", {
+      method: "GET",
+    });
+
+    const handler = withRewindCapture(async () => {
+      return new Response(responseBody, {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+    });
+
+    await handler(request);
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+
+    const capturedInput = captureMock.mock.calls[0][0];
+
+    expect(capturedInput.metadata).toMatchObject({
+      method: "GET",
+      path: "/api/test",
+      response: {
+        status: 200,
+        statusText: "OK",
+        contentType: "application/json",
+        sizeBytes: new TextEncoder().encode(responseBody).byteLength,
+        body: {
+          message: "response",
+          success: true,
+        },
+      },
+    });
+
+    captureMock.mockRestore();
+  });
 });

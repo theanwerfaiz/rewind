@@ -25,6 +25,22 @@ function captureHeaders(headersSource: Headers) {
   return headers;
 }
 
+function getContentLength(headers: Headers) {
+  const contentLength = headers.get("content-length");
+
+  if (!contentLength) {
+    return undefined;
+  }
+
+  const size = Number(contentLength);
+
+  return Number.isFinite(size) && size >= 0 ? size : undefined;
+}
+
+function getByteSize(value: string) {
+  return new TextEncoder().encode(value).byteLength;
+}
+
 async function readRequestPayload(request: NextRequest) {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -50,20 +66,37 @@ async function readResponseBody(response: Response) {
     const text = await clonedResponse.text();
 
     if (!text) {
-      return undefined;
+      return {
+        body: undefined,
+        sizeBytes: 0,
+      };
     }
+
+    const sizeBytes = getByteSize(text);
 
     if (contentType.includes("application/json")) {
       try {
-        return JSON.parse(text);
+        return {
+          body: JSON.parse(text),
+          sizeBytes,
+        };
       } catch {
-        return text;
+        return {
+          body: text,
+          sizeBytes,
+        };
       }
     }
 
-    return text;
+    return {
+      body: text,
+      sizeBytes,
+    };
   } catch {
-    return undefined;
+    return {
+      body: undefined,
+      sizeBytes: undefined,
+    };
   }
 }
 
@@ -84,11 +117,38 @@ async function captureHttpEvent(
 
   const errorMessage = error instanceof Error ? error.message : undefined;
 
-  const responseBody = response ? await readResponseBody(response) : undefined;
+  const responseData = response ? await readResponseBody(response) : undefined;
 
   const responseHeaders = response
     ? captureHeaders(response.headers)
     : undefined;
+
+  const requestContentType = request.headers.get("content-type") ?? undefined;
+
+  const requestSizeBytes =
+    getContentLength(request.headers) ??
+    (payload !== undefined ? getByteSize(JSON.stringify(payload)) : undefined);
+
+  const userAgent = request.headers.get("user-agent") ?? undefined;
+
+  const responseContentType =
+    response?.headers.get("content-type") ?? undefined;
+
+  const responseSizeBytes =
+    responseData?.sizeBytes ??
+    (response ? getContentLength(response.headers) : undefined);
+
+  const statusText =
+    response?.statusText ||
+    (status === 200
+      ? "OK"
+      : status === 201
+        ? "Created"
+        : status === 204
+          ? "No Content"
+          : status >= 500
+            ? "Internal Server Error"
+            : "HTTP Response");
 
   const metadata: RewindHttpMetadata = {
     environment: process.env.NODE_ENV ?? "development",
@@ -97,12 +157,42 @@ async function captureHttpEvent(
 
     path,
 
+    ...(requestContentType
+      ? {
+          contentType: requestContentType,
+        }
+      : {}),
+
+    ...(requestSizeBytes !== undefined
+      ? {
+          requestSizeBytes,
+        }
+      : {}),
+
+    ...(userAgent
+      ? {
+          userAgent,
+        }
+      : {}),
+
     headers: captureHeaders(request.headers),
 
     response: {
       status,
 
-      statusText: response?.statusText ?? "Internal Server Error",
+      statusText,
+
+      ...(responseContentType
+        ? {
+            contentType: responseContentType,
+          }
+        : {}),
+
+      ...(responseSizeBytes !== undefined
+        ? {
+            sizeBytes: responseSizeBytes,
+          }
+        : {}),
 
       ...(responseHeaders
         ? {
@@ -110,9 +200,9 @@ async function captureHttpEvent(
           }
         : {}),
 
-      ...(responseBody !== undefined
+      ...(responseData?.body !== undefined
         ? {
-            body: responseBody,
+            body: responseData.body,
           }
         : {}),
     },
@@ -141,7 +231,7 @@ async function captureHttpEvent(
 }
 
 export function withRewindCapture(handler: RouteHandler): RouteHandler {
-  return async (request: NextRequest) => {
+  return async (request) => {
     const startTime = performance.now();
 
     const payload = await readRequestPayload(request);
