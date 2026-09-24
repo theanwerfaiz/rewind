@@ -29,7 +29,28 @@ type CreateEventInput = {
   payload?: unknown;
 };
 
-function serializeEvent(row: Record<string, any>) {
+/** A row of the events table, as SQLite returns it. */
+type EventRow = {
+  id: string;
+  timestamp: string;
+  type: string;
+  title: string;
+  status: string;
+  duration: string | null;
+  source: string | null;
+  trace_id: string | null;
+  span_id: string | null;
+  request_id: string | null;
+  session_id: string | null;
+  user_id: string | null;
+  execution_id: string | null;
+  parent_event_id: string | null;
+  metadata: string | null;
+  payload: string | null;
+  created_at: string;
+};
+
+function serializeEvent(row: EventRow) {
   return {
     id: row.id,
     timestamp: row.timestamp,
@@ -100,7 +121,7 @@ export async function GET(request: NextRequest) {
       500,
     );
 
-    let rows: Record<string, any>[];
+    let rows: EventRow[];
 
     if (search && type) {
       rows = db
@@ -128,7 +149,7 @@ export async function GET(request: NextRequest) {
           type,
           ...Array(8).fill(`%${search}%`),
           limit,
-        ) as Record<string, any>[];
+        ) as EventRow[];
     } else if (search) {
       rows = db
         .prepare(
@@ -152,7 +173,7 @@ export async function GET(request: NextRequest) {
         .all(
           ...Array(9).fill(`%${search}%`),
           limit,
-        ) as Record<string, any>[];
+        ) as EventRow[];
     } else if (type) {
       rows = db
         .prepare(
@@ -164,7 +185,7 @@ export async function GET(request: NextRequest) {
           LIMIT ?
         `,
         )
-        .all(type, limit) as Record<string, any>[];
+        .all(type, limit) as EventRow[];
     } else {
       rows = db
         .prepare(
@@ -175,7 +196,7 @@ export async function GET(request: NextRequest) {
           LIMIT ?
         `,
         )
-        .all(limit) as Record<string, any>[];
+        .all(limit) as EventRow[];
     }
 
     return NextResponse.json({
@@ -394,7 +415,7 @@ export async function POST(request: NextRequest) {
           WHERE id = ?
         `,
       )
-      .get(id) as Record<string, any>;
+      .get(id) as EventRow;
 
     return NextResponse.json(
       {
