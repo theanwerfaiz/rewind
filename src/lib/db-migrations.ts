@@ -201,6 +201,19 @@ export function migrateDatabase(db: Database.Database) {
         );
     `);
 
+    // Invariants: expected truths attached to an execution.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS invariants (
+        id TEXT PRIMARY KEY,
+        execution_id TEXT NOT NULL,
+        definition TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_invariants_execution_id
+        ON invariants(execution_id);
+    `);
+
     // Verification runs: stored executions replayed against a candidate.
     db.exec(`
       CREATE TABLE IF NOT EXISTS verification_runs (

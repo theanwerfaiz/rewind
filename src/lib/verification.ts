@@ -205,10 +205,31 @@ async function verifyExecution(
     };
   }
 
+  const judged = judgeOutcome(stored.execution.status, diff.outcome);
+
+  // A verdict only passes when the expected behaviour holds too.
+  const broken = (diff.invariants ?? []).filter(
+    (comparison) => !comparison.candidate.passed,
+  );
+
+  if (judged.verdict === "pass" && broken.length > 0) {
+    return {
+      ...withReplay,
+      outcome: diff.outcome,
+      verdict: "fail",
+      reason: `Invariant failed: ${broken
+        .map(
+          (comparison) =>
+            `${comparison.description} (got ${comparison.candidate.actual})`,
+        )
+        .join("; ")}`,
+    };
+  }
+
   return {
     ...withReplay,
     outcome: diff.outcome,
-    ...judgeOutcome(stored.execution.status, diff.outcome),
+    ...judged,
   };
 }
 

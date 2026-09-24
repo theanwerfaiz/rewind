@@ -6,6 +6,7 @@ import {
   type DependencyMode,
 } from "./dependency-replay";
 import type { EventEdge } from "./event-graph";
+import { parseInvariant, type Invariant } from "./invariants";
 import type { RewindEvent } from "./mock-events";
 import type { Mutation } from "./mutations";
 
@@ -64,6 +65,11 @@ export type CapsuleBody = {
     fingerprintId: string | null;
   };
   experiments: CapsuleExperiment[];
+  /**
+   * Expected truths about the execution. Optional within version 1:
+   * capsules exported before invariants existed simply omit it.
+   */
+  invariants?: Invariant[];
 };
 
 export type Capsule = CapsuleBody & {
@@ -149,12 +155,14 @@ export function buildCapsule({
   events,
   edges,
   experiments = [],
+  invariants = [],
   createdAt = new Date().toISOString(),
 }: {
   execution: CapsuleExecution;
   events: RewindEvent[];
   edges: EventEdge[];
   experiments?: CapsuleExperiment[];
+  invariants?: Invariant[];
   createdAt?: string;
 }): Capsule {
   const sortedEvents = [...events].sort(
@@ -179,6 +187,7 @@ export function buildCapsule({
       fingerprintId: execution.fingerprintId,
     },
     experiments,
+    invariants,
   };
 
   const digest = computeCapsuleDigest(body);
@@ -298,6 +307,26 @@ export function validateCapsule(
 
   if (typeof rootEventId === "string" && !eventIds.has(rootEventId)) {
     errors.push("execution.rootEventId is not one of the capsule events.");
+  }
+
+  if (input.invariants !== undefined) {
+    if (!Array.isArray(input.invariants)) {
+      errors.push("invariants must be an array.");
+    } else {
+      input.invariants.forEach((invariant, index) => {
+        const parsed = parseInvariant(invariant);
+
+        if ("error" in parsed) {
+          errors.push(`invariants[${index}]: ${parsed.error}`);
+        } else if (
+          !isRecord(invariant) ||
+          typeof invariant.id !== "string" ||
+          !/^inv_[A-Za-z0-9_-]{1,128}$/.test(invariant.id)
+        ) {
+          errors.push(`invariants[${index}] must have an inv_ id.`);
+        }
+      });
+    }
   }
 
   const integrity = input.integrity;

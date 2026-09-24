@@ -1,4 +1,5 @@
 import type { ExecutionGraph } from "./event-graph";
+import type { Invariant, InvariantResult } from "./invariants";
 import { normalizeEndpoint } from "./fingerprint";
 import type { RewindEvent } from "./mock-events";
 import { findReplayChanges, type ReplayChange } from "./replay-diff";
@@ -85,6 +86,18 @@ export type ExecutionDiff = {
     verdict: TimingVerdict;
   };
   summary: string[];
+  /**
+   * The original execution's invariants evaluated on both sides. Set by
+   * compareExecutions, which has access to stored invariants.
+   */
+  invariants?: InvariantComparison[];
+};
+
+export type InvariantComparison = {
+  invariant: Invariant;
+  description: string;
+  original: InvariantResult;
+  candidate: InvariantResult;
 };
 
 type SideSummary = {

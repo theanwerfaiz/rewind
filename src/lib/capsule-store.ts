@@ -5,6 +5,8 @@ import {
   type CapsuleExecution,
 } from "@/lib/capsule";
 import { getExecutionById } from "@/lib/executions";
+import { addInvariant, getInvariantsForExecution } from "@/lib/invariant-store";
+import { parseInvariant } from "@/lib/invariants";
 import {
   assignExecutionFingerprint,
   ensureFingerprints,
@@ -56,6 +58,7 @@ export function exportCapsule(
     events,
     edges,
     experiments,
+    invariants: getInvariantsForExecution(execution.id),
   });
 
   return {
@@ -207,6 +210,14 @@ export function importCapsule(capsule: Capsule): ImportResult {
         capsule.createdAt,
         now,
       );
+
+      for (const invariant of capsule.invariants ?? []) {
+        const parsed = parseInvariant(invariant);
+
+        if ("invariant" in parsed) {
+          addInvariant(execution.id, parsed.invariant, invariant.id);
+        }
+      }
 
       assignExecutionFingerprint(execution.id);
 

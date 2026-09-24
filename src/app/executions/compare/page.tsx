@@ -339,6 +339,51 @@ export default async function CompareExecutionsPage({
           </section>
         )}
 
+        {diff.invariants && diff.invariants.length > 0 && (
+          <section className="mb-6 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
+            <h2 className="text-sm font-medium text-slate-200">Invariants</h2>
+
+            <table className="mt-3 w-full text-sm">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-600">
+                  <th className="pb-2 font-normal">Expected</th>
+                  <th className="pb-2 font-normal">Original</th>
+                  <th className="pb-2 font-normal">Candidate</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {diff.invariants.map((comparison) => (
+                  <tr
+                    key={comparison.invariant.id}
+                    className="border-t border-white/[0.05]"
+                  >
+                    <td className="py-2 pr-4 text-slate-200">
+                      {comparison.description}
+                    </td>
+
+                    {[comparison.original, comparison.candidate].map(
+                      (result, index) => (
+                        <td
+                          key={index}
+                          className={`py-2 pr-4 font-mono text-xs ${
+                            result.passed ? "text-emerald-400" : "text-red-400"
+                          }`}
+                        >
+                          {result.passed ? "holds" : "fails"}{" "}
+                          <span className="text-slate-600">
+                            ({result.actual})
+                          </span>
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
         <div className="grid gap-6 lg:grid-cols-2">
           <EventList
             title="Removed events"

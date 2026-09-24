@@ -4,6 +4,7 @@ import {
   buildCapsule,
   canonicalJson,
   CAPSULE_VERSION,
+  computeCapsuleDigest,
   validateCapsule,
   type Capsule,
 } from "@/lib/capsule";
@@ -171,6 +172,67 @@ describe("validateCapsule", () => {
     const result = validateCapsule(roundTrip(build()));
 
     expect("capsule" in result).toBe(true);
+  });
+
+  it("accepts version 1 capsules exported before invariants existed", () => {
+    // An older Rewind wrote no invariants field and hashed the body without it.
+    const {
+      id: _id,
+      integrity: _integrity,
+      invariants: _invariants,
+      ...body
+    } = build();
+
+    void [_id, _integrity, _invariants];
+
+    const digest = computeCapsuleDigest(body);
+
+    const legacy = {
+      ...body,
+      id: `cap_${digest.slice(0, 16)}`,
+      integrity: {
+        algorithm: "sha256" as const,
+        digest,
+      },
+    };
+
+    expect("capsule" in validateCapsule(roundTrip(legacy))).toBe(true);
+  });
+
+  it("carries and validates invariants", () => {
+    const capsule = buildCapsule({
+      execution,
+      events,
+      edges,
+      invariants: [
+        {
+          id: "inv_status",
+          kind: "http_status",
+          equals: 200,
+        },
+      ],
+    });
+
+    expect("capsule" in validateCapsule(roundTrip(capsule))).toBe(true);
+
+    const invalid = buildCapsule({
+      execution,
+      events,
+      edges,
+      invariants: [
+        {
+          id: "inv_bad",
+          kind: "http_status",
+          equals: 9000,
+        },
+      ],
+    });
+
+    const result = validateCapsule(roundTrip(invalid));
+
+    expect("errors" in result && result.errors.join(" ")).toContain(
+      "invariants[0]",
+    );
   });
 
   it("rejects a capsule edited after export", () => {

@@ -9,6 +9,8 @@ import { GET as exportCapsuleRoute } from "@/app/api/executions/[id]/capsule/rou
 
 import { POST as createEventRoute } from "@/app/api/events/route";
 
+import { POST as addInvariantRoute } from "@/app/api/executions/[id]/invariants/route";
+
 import { GET as getRunRoute } from "@/app/api/verifications/[id]/route";
 
 import {
@@ -218,6 +220,96 @@ describe("runVerification", () => {
       outcome: "regressed",
       verdict: "fail",
     });
+  });
+
+  async function addInvariant(executionId: string, definition: unknown) {
+    const response = await addInvariantRoute(
+      new NextRequest(
+        `http://localhost:3000/api/executions/${executionId}/invariants`,
+        {
+          method: "POST",
+          body: JSON.stringify(definition),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          id: executionId,
+        }),
+      },
+    );
+
+    expect(response.status).toBe(201);
+  }
+
+  it("fails a fix that breaks an invariant", async () => {
+    const original = `exe_verify_${suffix()}`;
+
+    await captureCheckout(original, true);
+
+    // The fixed checkout must create the order (201), not just return 200.
+    await addInvariant(original, {
+      kind: "http_status",
+      equals: 201,
+    });
+
+    await addInvariant(original, {
+      kind: "no_unhandled_errors",
+    });
+
+    mockCandidate("fixed");
+
+    const run = await runVerification({
+      targets: [{ executionId: original }],
+    });
+
+    for (const result of run.results) {
+      if (result.resultExecutionId) {
+        executionIds.add(result.resultExecutionId);
+      }
+    }
+
+    expect(run.results[0]).toMatchObject({
+      outcome: "fixed",
+      verdict: "fail",
+      reason: "Invariant failed: HTTP status is 201 (got 200)",
+    });
+
+    db.prepare(`DELETE FROM invariants WHERE execution_id = ?`).run(original);
+  });
+
+  it("passes a fix that satisfies its invariants", async () => {
+    const original = `exe_verify_${suffix()}`;
+
+    await captureCheckout(original, true);
+
+    await addInvariant(original, {
+      kind: "http_status",
+      equals: 200,
+    });
+
+    await addInvariant(original, {
+      kind: "event_absent",
+      title: "Payment timeout after 5000ms",
+    });
+
+    mockCandidate("fixed");
+
+    const run = await runVerification({
+      targets: [{ executionId: original }],
+    });
+
+    for (const result of run.results) {
+      if (result.resultExecutionId) {
+        executionIds.add(result.resultExecutionId);
+      }
+    }
+
+    expect(run.results[0]).toMatchObject({
+      outcome: "fixed",
+      verdict: "pass",
+    });
+
+    db.prepare(`DELETE FROM invariants WHERE execution_id = ?`).run(original);
   });
 
   it("explains a target that does not capture replays", async () => {

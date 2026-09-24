@@ -2,9 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import {
+  InvariantPanel,
+  type InvariantSuggestion,
+} from "@/components/executions/InvariantPanel";
 import type { GraphNode } from "@/lib/event-graph";
 import { parseDurationMs } from "@/lib/events";
 import { getExecutionGraphById } from "@/lib/executions";
+import { getInvariantsForExecution } from "@/lib/invariant-store";
+import {
+  describeInvariant,
+  evaluateInvariants,
+  type InvariantDefinition,
+} from "@/lib/invariants";
 import { getReplayByResultExecutionId } from "@/lib/replays";
 
 function getEventIcon(type: string) {
@@ -103,6 +113,62 @@ export default async function ExecutionPage({
   const { execution, graph } = result;
 
   const replay = getReplayByResultExecutionId(execution.id);
+
+  const invariants = getInvariantsForExecution(execution.id);
+
+  const invariantResults = evaluateInvariants(invariants, {
+    status: execution.status,
+    startedAt: execution.startedAt,
+    endedAt: execution.endedAt,
+    rootEventId: execution.rootEventId,
+    events: result.events,
+  });
+
+  // One-click invariants drawn from this execution's own behaviour.
+  const suggestedDefinitions: InvariantDefinition[] = [];
+
+  if (execution.rootType === "http.request") {
+    suggestedDefinitions.push({
+      kind: "http_status",
+      equals: 200,
+    });
+  }
+
+  suggestedDefinitions.push({
+    kind: "no_unhandled_errors",
+  });
+
+  for (const title of new Set(
+    result.events
+      .filter((event) => event.type === "http.dependency")
+      .map((event) => event.title),
+  )) {
+    suggestedDefinitions.push({
+      kind: "max_event_count",
+      title,
+      max: 1,
+    });
+  }
+
+  const originEvent = graph.firstFailureId
+    ? result.events.find((event) => event.id === graph.firstFailureId)
+    : undefined;
+
+  // Only a dedicated error event should never happen; a failed call (an
+  // HTTP request or dependency) should still happen, just succeed.
+  if (originEvent?.type === "error") {
+    suggestedDefinitions.push({
+      kind: "event_absent",
+      title: originEvent.title,
+    });
+  }
+
+  const invariantSuggestions: InvariantSuggestion[] = suggestedDefinitions
+    .slice(0, 6)
+    .map((definition) => ({
+      description: describeInvariant(definition),
+      definition,
+    }));
 
   const startedAt = Date.parse(execution.startedAt);
 
@@ -293,6 +359,17 @@ export default async function ExecutionPage({
             </ol>
           </section>
         )}
+
+        <InvariantPanel
+          executionId={execution.id}
+          items={invariants.map((invariant, index) => ({
+            id: invariant.id,
+            description: describeInvariant(invariant),
+            passed: invariantResults[index].passed,
+            actual: invariantResults[index].actual,
+          }))}
+          suggestions={invariantSuggestions}
+        />
 
         <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
           <div className="mb-5 flex items-end justify-between gap-4 border-b border-white/[0.06] pb-5">

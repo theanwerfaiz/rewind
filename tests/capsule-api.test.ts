@@ -8,6 +8,13 @@ import { GET as getExecution } from "@/app/api/executions/[id]/route";
 
 import { GET as exportCapsuleRoute } from "@/app/api/executions/[id]/capsule/route";
 
+import {
+  GET as listInvariantsRoute,
+  POST as addInvariantRoute,
+} from "@/app/api/executions/[id]/invariants/route";
+
+import { DELETE as deleteInvariantRoute } from "@/app/api/invariants/[id]/route";
+
 import { POST as createEvent } from "@/app/api/events/route";
 
 import {
@@ -18,6 +25,7 @@ import {
 const executionIds: string[] = [];
 
 function removeExecution(executionId: string) {
+  db.prepare(`DELETE FROM invariants WHERE execution_id = ?`).run(executionId);
   db.prepare(`DELETE FROM event_edges WHERE execution_id = ?`).run(executionId);
   db.prepare(`DELETE FROM events WHERE execution_id = ?`).run(executionId);
   db.prepare(`DELETE FROM executions WHERE id = ?`).run(executionId);
@@ -290,5 +298,121 @@ describe("capsule export and import", () => {
 
   it("returns 404 for an unknown execution", async () => {
     expect((await exportCapsule("exe_missing")).status).toBe(404);
+  });
+});
+
+describe("invariants API", () => {
+  function params(id: string) {
+    return {
+      params: Promise.resolve({
+        id,
+      }),
+    };
+  }
+
+  function add(executionId: string, body: unknown) {
+    return addInvariantRoute(
+      new NextRequest(
+        `http://localhost:3000/api/executions/${executionId}/invariants`,
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      ),
+      params(executionId),
+    );
+  }
+
+  async function list(executionId: string) {
+    return (
+      await listInvariantsRoute(
+        new NextRequest(
+          `http://localhost:3000/api/executions/${executionId}/invariants`,
+        ),
+        params(executionId),
+      )
+    ).json();
+  }
+
+  it("adds, evaluates and deletes invariants", async () => {
+    const executionId = await captureExecution();
+
+    const created = await add(executionId, {
+      kind: "http_status",
+      equals: 200,
+    });
+
+    expect(created.status).toBe(201);
+
+    const { invariant, description } = await created.json();
+
+    expect(invariant.id).toMatch(/^inv_/);
+    expect(description).toBe("HTTP status is 200");
+
+    expect((await list(executionId)).invariants).toEqual([
+      {
+        invariant,
+        description,
+        result: {
+          invariantId: invariant.id,
+          passed: false,
+          actual: "502",
+        },
+      },
+    ]);
+
+    const deleted = await deleteInvariantRoute(
+      new NextRequest(`http://localhost:3000/api/invariants/${invariant.id}`, {
+        method: "DELETE",
+      }),
+      params(invariant.id),
+    );
+
+    expect(deleted.status).toBe(204);
+    expect((await list(executionId)).invariants).toEqual([]);
+  });
+
+  it("rejects invalid invariants and unknown executions", async () => {
+    const executionId = await captureExecution();
+
+    expect((await add(executionId, { kind: "maybe" })).status).toBe(400);
+    expect(
+      (await add("exe_missing", { kind: "no_unhandled_errors" })).status,
+    ).toBe(404);
+
+    const missing = await deleteInvariantRoute(
+      new NextRequest("http://localhost:3000/api/invariants/inv_missing", {
+        method: "DELETE",
+      }),
+      params("inv_missing"),
+    );
+
+    expect(missing.status).toBe(404);
+  });
+
+  it("carries invariants through a capsule", async () => {
+    const executionId = await captureExecution();
+
+    const { invariant } = await (
+      await add(executionId, {
+        kind: "max_event_count",
+        title: "POST https://api.stripe.test/v1/charges",
+        max: 1,
+      })
+    ).json();
+
+    const file = await (await exportCapsule(executionId)).text();
+
+    expect(JSON.parse(file).invariants).toEqual([invariant]);
+
+    removeExecution(executionId);
+
+    expect((await importCapsule(file)).status).toBe(201);
+
+    expect(
+      (await list(executionId)).invariants.map(
+        (entry: { invariant: unknown }) => entry.invariant,
+      ),
+    ).toEqual([invariant]);
   });
 });
