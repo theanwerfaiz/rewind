@@ -1,6 +1,9 @@
+import { createEventId, getExecutionContext } from "./execution-context";
 import type { EventStatus, EventType, RewindEvent } from "./mock-events";
 
 export type CaptureEventInput = {
+  id?: string;
+  timestamp?: string;
   type: EventType;
   title: string;
   status?: EventStatus;
@@ -8,9 +11,13 @@ export type CaptureEventInput = {
   source?: string | null;
 
   traceId?: string | null;
+  spanId?: string | null;
   requestId?: string | null;
   sessionId?: string | null;
   userId?: string | null;
+
+  executionId?: string | null;
+  parentEventId?: string | null;
 
   metadata?: Record<string, unknown>;
   payload?: unknown;
@@ -27,8 +34,9 @@ type CaptureResponse = {
 const DEFAULT_ENDPOINT =
   process.env.REWIND_CAPTURE_URL ?? "http://localhost:3000/api/events";
 
-function createEventId() {
-  return `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+/** Origin of the Rewind server that events are captured to. */
+export function getRewindOrigin() {
+  return new URL(DEFAULT_ENDPOINT).origin;
 }
 
 export async function capture(
@@ -37,14 +45,26 @@ export async function capture(
 ): Promise<RewindEvent> {
   const endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
 
+  // Events captured inside an execution join it as children of the event
+  // that opened the current execution scope. Pass null to opt out.
+  const context = getExecutionContext();
+
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      id: createEventId(),
       ...event,
+      id: event.id ?? createEventId(),
+      executionId:
+        event.executionId !== undefined
+          ? event.executionId
+          : context?.executionId,
+      parentEventId:
+        event.parentEventId !== undefined
+          ? event.parentEventId
+          : context?.eventId,
     }),
   });
 

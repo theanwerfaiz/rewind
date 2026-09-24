@@ -1,9 +1,86 @@
 import { NextRequest } from "next/server";
 
+import { extractCorrelationIds } from "@/lib/correlation";
+import {
+  DependencyReplayer,
+  type ReplayPlan,
+} from "@/lib/dependency-replay";
 import type { RewindHttpMetadata } from "@/lib/event-metadata";
-import { rewind } from "@/lib/rewind";
+import {
+  createEventId,
+  createExecutionId,
+  getExecutionContext,
+  runInExecution,
+} from "@/lib/execution-context";
+import { getRewindOrigin, rewind } from "@/lib/rewind";
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
+
+const UUID_SUFFIX = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+const REPLAY_ID_PATTERN = new RegExp(`^replay_${UUID_SUFFIX}$`);
+
+const EXECUTION_ID_PATTERN = new RegExp(`^exe_${UUID_SUFFIX}$`);
+
+/**
+ * A Rewind replay pre-assigns the execution its request will be captured
+ * as, so the experiment can be compared with the original. Honoured only
+ * for well-formed replay requests.
+ */
+function getReplayIdentity(headers: Headers) {
+  const replayId = headers.get("x-rewind-replay-id");
+
+  const executionId = headers.get("x-rewind-execution-id");
+
+  if (
+    replayId &&
+    executionId &&
+    REPLAY_ID_PATTERN.test(replayId) &&
+    EXECUTION_ID_PATTERN.test(executionId)
+  ) {
+    return {
+      replayId,
+      executionId,
+    };
+  }
+
+  return undefined;
+}
+
+/**
+ * Loads how dependency calls should behave during a replay. If the plan
+ * cannot be loaded, every dependency call is blocked: a replay must never
+ * fall back to live side effects by accident.
+ */
+async function loadReplayer(replayId: string) {
+  try {
+    const response = await fetch(
+      `${getRewindOrigin()}/api/replays/${replayId}/plan`,
+    );
+
+    if (response.ok) {
+      const { plan } = (await response.json()) as { plan: ReplayPlan };
+
+      return new DependencyReplayer(plan);
+    }
+  } catch (error) {
+    console.error("Rewind replay plan unavailable:", error);
+  }
+
+  return new DependencyReplayer({
+    replayId,
+    mode: "blocked",
+    fixtures: [],
+    dependencyMutations: [],
+  });
+}
+
+type HttpEventIdentity = {
+  eventId: string;
+  executionId: string;
+  parentEventId: string | null;
+  startedAt: string;
+};
 
 const REDACTED_HEADERS = new Set([
   "authorization",
@@ -101,6 +178,7 @@ async function readResponseBody(response: Response) {
 }
 
 async function captureHttpEvent(
+  identity: HttpEventIdentity,
   request: NextRequest,
   response: Response | null,
   payload: unknown,
@@ -216,12 +294,16 @@ async function captureHttpEvent(
 
   try {
     await rewind.capture({
+      id: identity.eventId,
+      timestamp: identity.startedAt,
+      executionId: identity.executionId,
+      parentEventId: identity.parentEventId,
       type: "http.request",
       title: `${method} ${path}`,
       status: eventStatus,
       duration: `${durationMs}ms`,
       source: "next-http",
-      requestId: request.headers.get("x-request-id") ?? undefined,
+      ...extractCorrelationIds(request.headers),
       metadata,
       payload,
     });
@@ -234,23 +316,59 @@ export function withRewindCapture(handler: RouteHandler): RouteHandler {
   return async (request) => {
     const startTime = performance.now();
 
+    // A request handled inside another execution joins it as a child;
+    // otherwise it is the root of a new execution.
+    const parent = getExecutionContext();
+
+    const replayIdentity = parent
+      ? undefined
+      : getReplayIdentity(request.headers);
+
+    const identity: HttpEventIdentity = {
+      eventId: createEventId(),
+      executionId:
+        parent?.executionId ??
+        replayIdentity?.executionId ??
+        createExecutionId(),
+      parentEventId: parent?.eventId ?? null,
+      startedAt: new Date().toISOString(),
+    };
+
+    const replay =
+      parent?.replay ??
+      (replayIdentity ? await loadReplayer(replayIdentity.replayId) : undefined);
+
     const payload = await readRequestPayload(request);
 
     let response: Response;
 
     try {
-      response = await handler(request);
+      response = await runInExecution(
+        {
+          executionId: identity.executionId,
+          eventId: identity.eventId,
+          replay,
+        },
+        () => handler(request),
+      );
     } catch (error) {
       const durationMs = Math.round(performance.now() - startTime);
 
-      await captureHttpEvent(request, null, payload, durationMs, error);
+      await captureHttpEvent(
+        identity,
+        request,
+        null,
+        payload,
+        durationMs,
+        error,
+      );
 
       throw error;
     }
 
     const durationMs = Math.round(performance.now() - startTime);
 
-    await captureHttpEvent(request, response, payload, durationMs);
+    await captureHttpEvent(identity, request, response, payload, durationMs);
 
     return response;
   };

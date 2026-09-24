@@ -100,4 +100,58 @@ describe("test generator", () => {
       "/api/test-capture",
     );
   });
+
+  it("records where the test came from", () => {
+    const code = generateVitestTest({
+      event: {
+        ...event,
+        executionId: "exe_source",
+      },
+      fingerprintId: "fp_0123456789abcdef",
+    });
+
+    expect(code.startsWith("/**\n * Rewind regression test")).toBe(true);
+    expect(code).toContain(
+      " * Given: the request captured as evt_test_001, execution exe_source, failure fp_0123456789abcdef",
+    );
+    expect(code).toContain(" * Then:  it succeeds");
+  });
+
+  it("asserts HTTP invariants instead of a generic success check", () => {
+    const invariants = [
+      { id: "inv_1", kind: "http_status" as const, equals: 201 },
+      {
+        id: "inv_2",
+        kind: "response_field" as const,
+        path: "order.status",
+        equals: "paid",
+      },
+      {
+        id: "inv_3",
+        kind: "max_event_count" as const,
+        title: "POST https://api.stripe.test/v1/charges",
+        max: 1,
+      },
+    ];
+
+    const vitest = generateVitestTest({ event, invariants });
+
+    expect(vitest).toContain("expect(response.status).toBe(201);");
+    expect(vitest).not.toContain("expect(response.ok).toBe(true)");
+    expect(vitest).toContain("const body = await response.json();");
+    expect(vitest).toContain(
+      'expect(body?.["order"]?.["status"]).toEqual("paid");',
+    );
+    expect(vitest).toContain(
+      ' * Then:  HTTP status is 201; response.order.status is "paid"',
+    );
+    expect(vitest).toContain(
+      ' * Also verified by Rewind replays: "POST https://api.stripe.test/v1/charges" happens at most 1 time',
+    );
+
+    const playwright = generatePlaywrightTest({ event, invariants });
+
+    expect(playwright).toContain("expect(response.status()).toBe(201);");
+    expect(playwright).not.toContain("expect(response.ok()).toBeTruthy()");
+  });
 });

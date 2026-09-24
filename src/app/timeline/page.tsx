@@ -1,5 +1,10 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import db from "@/lib/db";
+import { EventIcon } from "@/components/ui/EventIcon";
+import { StatusDot } from "@/components/ui/StatusBadge";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Stat } from "@/components/ui/primitives";
 
 type TimelineEvent = {
   id: string;
@@ -29,64 +34,11 @@ function formatDate(timestamp: string) {
   });
 }
 
-function getEventIcon(type: string) {
-  switch (type) {
-    case "webhook.received":
-      return "↗";
-
-    case "http.request":
-      return "→";
-
-    case "error":
-      return "!";
-
-    case "database.query":
-      return "◇";
-
-    case "agent.action":
-      return "✦";
-
-    case "command":
-      return "$";
-
-    case "deployment":
-      return "▲";
-
-    case "config.change":
-      return "⚙";
-
-    default:
-      return "•";
-  }
-}
-
-function getStatusClass(status: string) {
-  switch (status) {
-    case "success":
-      return "bg-emerald-400";
-
-    case "error":
-      return "bg-red-400";
-
-    default:
-      return "bg-slate-500";
-  }
-}
-
-function getStatusTextClass(status: string) {
-  switch (status) {
-    case "success":
-      return "text-emerald-400";
-
-    case "error":
-      return "text-red-400";
-
-    default:
-      return "text-slate-400";
-  }
-}
-
 async function getTimelineEvents(): Promise<TimelineEvent[]> {
+  // better-sqlite3 is synchronous, so without this the query runs once at
+  // build time and the page never shows newly captured events.
+  await connection();
+
   const rows = db
     .prepare(
       `
@@ -139,75 +91,32 @@ export default async function TimelinePage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-sm text-slate-500 transition hover:text-slate-200"
-          >
-            ← Back to events
-          </Link>
+    <>
+      <PageHeader
+        crumbs={[{ label: "Raw data" }, { label: "Timeline" }]}
+        title="Timeline"
+        description="A chronological view of everything captured by Rewind. Related events are grouped by request."
+      />
 
-          <div className="mt-5">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Timeline
-              </h1>
-
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-500">
-                {events.length} events
-              </span>
-            </div>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              A chronological view of everything captured by Rewind. Related
-              events are grouped by request.
-            </p>
-          </div>
-        </div>
-
-        <div className="mb-8 grid grid-cols-3 gap-4">
-          <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <div className="text-xs uppercase tracking-wider text-slate-600">
-              Total Events
-            </div>
-
-            <div className="mt-2 text-2xl font-semibold text-white">
-              {events.length}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <div className="text-xs uppercase tracking-wider text-slate-600">
-              Request Stories
-            </div>
-
-            <div className="mt-2 text-2xl font-semibold text-white">
-              {requestGroups}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <div className="text-xs uppercase tracking-wider text-slate-600">
-              Errors
-            </div>
-
-            <div className="mt-2 text-2xl font-semibold text-red-400">
-              {errorCount}
-            </div>
-          </div>
-        </div>
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <Stat label="Events" value={events.length} />
+        <Stat label="Request stories" value={requestGroups} />
+        <Stat
+          label="Errors"
+          value={errorCount}
+          tone={errorCount > 0 ? "failure" : undefined}
+        />
+      </div>
 
         {groups.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-16 text-center">
-            <div className="text-3xl text-slate-700">◷</div>
+          <div className="rounded-2xl border border-line bg-panel p-16 text-center">
+            <div className="text-3xl text-faint">◷</div>
 
-            <h2 className="mt-4 text-sm font-medium text-slate-300">
+            <h2 className="mt-4 text-sm font-medium text-ink-2">
               No events yet
             </h2>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-faint">
               Capture events to build your first timeline.
             </p>
           </div>
@@ -220,106 +129,66 @@ export default async function TimelinePage() {
               return (
                 <section
                   key={group.key}
-                  className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6"
+                  className="overflow-hidden rounded-xl border border-line bg-panel"
                 >
-                  <div className="mb-6 flex flex-col gap-3 border-b border-white/[0.06] pb-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-sm font-medium text-slate-200">
-                          {hasRequest ? "Request Story" : "Standalone Event"}
-                        </h2>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-sm font-medium text-ink">
+                        {hasRequest ? "Request" : "Standalone event"}
+                      </h2>
 
-                        <span className="rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] text-slate-500">
-                          {group.events.length}{" "}
-                          {group.events.length === 1 ? "event" : "events"}
-                        </span>
-                      </div>
+                      <span className="rounded-full bg-raised px-2 py-0.5 text-xs text-muted">
+                        {group.events.length}{" "}
+                        {group.events.length === 1 ? "event" : "events"}
+                      </span>
 
-                      <p className="mt-1 text-xs text-slate-600">
+                      <span className="text-xs text-faint">
                         {formatDate(firstEvent.timestamp)}
-                      </p>
+                      </span>
                     </div>
 
                     {firstEvent.request_id && (
-                      <div className="max-w-full break-all rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 font-mono text-[11px] text-slate-600">
+                      <span className="max-w-full truncate font-mono text-xs text-faint">
                         {firstEvent.request_id}
-                      </div>
+                      </span>
                     )}
                   </div>
 
-                  <div className="relative">
-                    <div className="absolute bottom-4 left-[19px] top-4 w-px bg-white/[0.08]" />
-
-                    <div className="space-y-1">
-                      {group.events.map((event) => (
+                  <ol className="divide-y divide-line">
+                    {group.events.map((event) => (
+                      <li key={event.id}>
                         <Link
-                          key={event.id}
                           href={`/events/${event.id}`}
-                          className="group relative flex gap-4 rounded-xl px-1 py-4 transition hover:bg-white/[0.03]"
+                          className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-raised"
                         >
-                          <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-[#0d1320] font-mono text-sm text-slate-400 transition group-hover:border-white/[0.15] group-hover:text-white">
-                            {getEventIcon(event.type)}
-                          </div>
+                          <EventIcon type={event.type} status={event.status} size="sm" />
 
-                          <div className="min-w-0 flex-1 pt-0.5">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium text-slate-200 group-hover:text-white">
-                                  {event.title}
-                                </div>
-
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                                  <span>{event.type}</span>
-
-                                  {event.source && (
-                                    <>
-                                      <span>•</span>
-
-                                      <span>{event.source}</span>
-                                    </>
-                                  )}
-
-                                  {event.duration && (
-                                    <>
-                                      <span>•</span>
-
-                                      <span>{event.duration}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex shrink-0 items-center gap-3">
-                                <span className="font-mono text-xs text-slate-600">
-                                  {formatTime(event.timestamp)}
-                                </span>
-
-                                <span
-                                  className={`h-2 w-2 rounded-full ${getStatusClass(
-                                    event.status,
-                                  )}`}
-                                />
-                              </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm text-ink">
+                              {event.title}
                             </div>
 
-                            <div
-                              className={`mt-2 text-[10px] uppercase tracking-wider ${getStatusTextClass(
-                                event.status,
-                              )}`}
-                            >
-                              {event.status}
+                            <div className="mt-0.5 truncate text-xs text-muted">
+                              {event.type}
+                              {event.source ? ` · ${event.source}` : ""}
+                              {event.duration ? ` · ${event.duration}` : ""}
                             </div>
                           </div>
+
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
+                            {formatTime(event.timestamp)}
+                          </span>
+
+                          <StatusDot status={event.status} />
                         </Link>
-                      ))}
-                    </div>
-                  </div>
+                      </li>
+                    ))}
+                  </ol>
                 </section>
               );
             })}
           </div>
         )}
-      </div>
-    </main>
+      </>
   );
 }

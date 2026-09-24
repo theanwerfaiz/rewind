@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { generateTest } from "@/lib/test-generator";
 import type { RewindEvent } from "@/lib/mock-events";
 
@@ -12,9 +13,12 @@ type EventRow = {
   duration: string | null;
   source: string | null;
   trace_id: string | null;
+  span_id: string | null;
   request_id: string | null;
   session_id: string | null;
   user_id: string | null;
+  execution_id: string | null;
+  parent_event_id: string | null;
   metadata: string | null;
   payload: string | null;
   created_at: string;
@@ -63,9 +67,12 @@ export async function POST(request: NextRequest) {
           duration,
           source,
           trace_id,
+          span_id,
           request_id,
           session_id,
           user_id,
+          execution_id,
+          parent_event_id,
           metadata,
           payload,
           created_at
@@ -108,9 +115,13 @@ export async function POST(request: NextRequest) {
       source: row.source,
 
       traceId: row.trace_id,
+      spanId: row.span_id,
       requestId: row.request_id,
       sessionId: row.session_id,
       userId: row.user_id,
+
+      executionId: row.execution_id,
+      parentEventId: row.parent_event_id,
 
       metadata: parseJson(row.metadata) as Record<string, unknown> | undefined,
 
@@ -119,9 +130,19 @@ export async function POST(request: NextRequest) {
       createdAt: row.created_at,
     };
 
+    const fingerprint = event.executionId
+      ? (db
+          .prepare(`SELECT fingerprint_id FROM executions WHERE id = ?`)
+          .get(event.executionId) as { fingerprint_id: string | null } | undefined)
+      : undefined;
+
     const code = generateTest({
       event,
       framework,
+      invariants: event.executionId
+        ? getInvariantsForExecution(event.executionId)
+        : [],
+      fingerprintId: fingerprint?.fingerprint_id ?? null,
     });
 
     return NextResponse.json({

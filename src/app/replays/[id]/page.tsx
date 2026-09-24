@@ -5,6 +5,10 @@ import { ReplayComparison } from "@/components/events/ReplayComparison";
 import { ReplayResponseComparison } from "@/components/events/ReplayResponseComparison";
 import { getEventById } from "@/lib/events";
 import { getReplayById } from "@/lib/replays";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge, HttpStatus } from "@/components/ui/StatusBadge";
+import { ButtonLink } from "@/components/ui/primitives";
+import { shortId } from "@/lib/format";
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -12,22 +16,10 @@ function formatDate(timestamp: string) {
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-slate-300">
+    <pre className="overflow-x-auto rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-ink-2">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
-}
-
-function statusClass(status: number) {
-  if (status >= 200 && status < 300) {
-    return "bg-emerald-500/10 text-emerald-400";
-  }
-
-  if (status >= 400) {
-    return "bg-red-500/10 text-red-400";
-  }
-
-  return "bg-white/10 text-slate-400";
 }
 
 function getOriginalResponseStatus(metadata: unknown) {
@@ -110,52 +102,40 @@ export default async function ReplayDetailsPage({
   const replayMatches = statusMatches && bodyMatches;
 
   return (
-    <main className="min-h-screen bg-[#08090b] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <Link
-            href={`/events/${replay.eventId}`}
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← Back to event
-          </Link>
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-1 font-mono text-sm text-slate-300">
-              {replay.method}
+    <>
+      <PageHeader
+        crumbs={[
+          { label: "Replays", href: "/replays" },
+          { label: shortId(replay.id) },
+        ]}
+        badges={
+          <>
+            <Badge>{replay.method}</Badge>
+            <HttpStatus status={replay.status} />
+          </>
+        }
+        title={replay.label ?? "Replay"}
+        meta={
+          <>
+            <span className="break-all font-mono">{replay.url}</span>
+            <span className="font-mono tabular-nums">
+              {formatDate(replay.timestamp)}
             </span>
-
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${statusClass(
-                replay.status,
-              )}`}
-            >
-              {replay.status}
-            </span>
-          </div>
-
-          <h1 className="break-all text-3xl font-semibold tracking-tight">
-            Replay
-          </h1>
-
-          <p className="mt-2 break-all font-mono text-sm text-slate-500">
-            {replay.url}
-          </p>
-
-          <p className="mt-2 text-sm text-slate-600">
-            {formatDate(replay.timestamp)}
-          </p>
-        </div>
+          </>
+        }
+        actions={
+          <ButtonLink href={`/events/${replay.eventId}`} variant="ghost">
+            Original event
+          </ButtonLink>
+        }
+      />
 
         {/* Replay Result */}
         <section
           className={`rounded-2xl border p-6 ${
             replayMatches
-              ? "border-emerald-500/20 bg-emerald-500/[0.04]"
-              : "border-amber-500/20 bg-amber-500/[0.04]"
+              ? "border-success/20 bg-success-soft"
+              : "border-warning/20 bg-warning-soft"
           }`}
         >
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -163,8 +143,8 @@ export default async function ReplayDetailsPage({
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg ${
                   replayMatches
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-amber-500/10 text-amber-400"
+                    ? "bg-success-soft text-success"
+                    : "bg-warning-soft text-warning"
                 }`}
               >
                 {replayMatches ? "✓" : "≠"}
@@ -173,13 +153,13 @@ export default async function ReplayDetailsPage({
               <div>
                 <div
                   className={`text-sm font-semibold uppercase tracking-wider ${
-                    replayMatches ? "text-emerald-400" : "text-amber-400"
+                    replayMatches ? "text-success" : "text-warning"
                   }`}
                 >
                   {replayMatches ? "Replay matches" : "Replay differs"}
                 </div>
 
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="mt-1 text-sm text-ink-2">
                   {replayMatches
                     ? "The replay returned the same status and response body as the original event."
                     : "The replay produced a different status or response body."}
@@ -201,7 +181,7 @@ export default async function ReplayDetailsPage({
         </section>
 
         {/* Replay Information */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <h2 className="mb-5 text-lg font-medium">Replay Information</h2>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -216,30 +196,30 @@ export default async function ReplayDetailsPage({
         </section>
 
         {/* Original Event */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-medium">Original Event</h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted">
                 The event from which this replay was created.
               </p>
             </div>
 
             <Link
               href={`/events/${event.id}`}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+              className="rounded-lg border border-line bg-raised px-4 py-2 text-sm text-ink-2 transition hover:bg-hover hover:text-ink"
             >
               View event →
             </Link>
           </div>
 
-          <div className="mt-5 rounded-xl border border-white/5 bg-black/20 p-4">
-            <div className="text-sm font-medium text-slate-300">
+          <div className="mt-5 rounded-xl border border-line bg-canvas p-4">
+            <div className="text-sm font-medium text-ink-2">
               {event.title}
             </div>
 
-            <div className="mt-1 break-all font-mono text-xs text-slate-600">
+            <div className="mt-1 break-all font-mono text-xs text-faint">
               {event.id}
             </div>
           </div>
@@ -260,11 +240,11 @@ export default async function ReplayDetailsPage({
         />
 
         {/* Replay Request */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="mb-5">
             <h2 className="text-lg font-medium">Replay Request</h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               The exact payload used for this replay attempt.
             </p>
           </div>
@@ -272,75 +252,74 @@ export default async function ReplayDetailsPage({
           {replay.payload !== null ? (
             <JsonBlock value={replay.payload} />
           ) : (
-            <p className="text-sm text-slate-500">No request payload.</p>
+            <p className="text-sm text-muted">No request payload.</p>
           )}
         </section>
 
         {/* Replay Response */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="mb-5">
             <h2 className="text-lg font-medium">Replay Response</h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               The response returned by the application.
             </p>
           </div>
 
           <div className="space-y-6">
             <div>
-              <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+              <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                 Original Headers
               </div>
 
               {originalHeaders !== undefined ? (
                 <JsonBlock value={originalHeaders} />
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   No original response headers.
                 </p>
               )}
             </div>
 
             <div>
-              <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+              <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                 Replay Headers
               </div>
 
               {replay.responseHeaders !== null ? (
                 <JsonBlock value={replay.responseHeaders} />
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   No replay response headers.
                 </p>
               )}
             </div>
 
             <div>
-              <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+              <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                 Replay Body
               </div>
 
               {replay.responseBody !== null ? (
                 <JsonBlock value={replay.responseBody} />
               ) : (
-                <p className="text-sm text-slate-500">No response body.</p>
+                <p className="text-sm text-muted">No response body.</p>
               )}
             </div>
           </div>
         </section>
-      </div>
-    </main>
+      </>
   );
 }
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-slate-500">
+      <div className="text-xs uppercase tracking-wider text-muted">
         {label}
       </div>
 
-      <div className="mt-2 break-all font-mono text-sm text-slate-300">
+      <div className="mt-2 break-all font-mono text-sm text-ink-2">
         {value}
       </div>
     </div>
@@ -349,12 +328,12 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function ResultMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-      <div className="text-[10px] uppercase tracking-wider text-slate-600">
+    <div className="rounded-xl border border-line bg-canvas px-4 py-3">
+      <div className="text-xs uppercase tracking-wider text-faint">
         {label}
       </div>
 
-      <div className="mt-1 font-mono text-sm text-slate-300">{value}</div>
+      <div className="mt-1 font-mono text-sm text-ink-2">{value}</div>
     </div>
   );
 }

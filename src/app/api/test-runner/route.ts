@@ -3,10 +3,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { runVitestTest } from "@/lib/test-runner";
+import { recordTestRun } from "@/lib/test-runs";
 
 type TestRunnerRequest = {
   framework?: string;
   code?: string;
+  /** The event the test reproduces; the run is recorded against it. */
+  eventId?: string;
 };
 
 const TEMP_DIRECTORY = path.join(process.cwd(), "rewind-test-runs");
@@ -87,7 +90,13 @@ export async function POST(request: NextRequest) {
 
     const result = await runVitestTest(filePath);
 
+    const testRun =
+      typeof body.eventId === "string"
+        ? recordTestRun(body.eventId, framework, result)
+        : null;
+
     return NextResponse.json({
+      testRunId: testRun?.id ?? null,
       success: result.success,
       framework,
       filename: fileName,

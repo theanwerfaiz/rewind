@@ -1,6 +1,7 @@
 export type EventType =
   | "webhook.received"
   | "http.request"
+  | "http.dependency"
   | "error"
   | "database.query"
   | "agent.action"
@@ -21,9 +22,13 @@ export type RewindEvent = {
   source?: string | null;
 
   traceId?: string | null;
+  spanId?: string | null;
   requestId?: string | null;
   sessionId?: string | null;
   userId?: string | null;
+
+  executionId?: string | null;
+  parentEventId?: string | null;
 
   metadata?: Record<string, unknown>;
   payload?: unknown;

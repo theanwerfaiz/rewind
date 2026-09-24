@@ -232,4 +232,75 @@ describe("POST /api/webhooks/capture", () => {
 
     expect(data.error).toContain("Capture service unavailable");
   });
+
+  it("captures correlation IDs from webhook headers", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_webhook_correlation",
+      timestamp: "2026-09-12T00:00:00.000Z",
+      type: "webhook.received",
+      title: "Webhook received",
+      status: "success",
+    });
+
+    await POST(
+      createRequest(
+        {
+          id: "webhook_correlation",
+        },
+        {
+          "X-Request-Id": "req_webhook",
+          "X-Session-Id": "sess_webhook",
+          "X-User-Id": "user_webhook",
+          traceparent:
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        },
+      ),
+    );
+
+    expect(captureMock.mock.calls[0][0]).toMatchObject({
+      requestId: "req_webhook",
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+      spanId: "00f067aa0ba902b7",
+      sessionId: "sess_webhook",
+      userId: "user_webhook",
+    });
+  });
+
+  it("generates a request ID when none is provided", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_webhook_generated",
+      timestamp: "2026-09-12T00:00:00.000Z",
+      type: "webhook.received",
+      title: "Webhook received",
+      status: "success",
+    });
+
+    await POST(
+      createRequest({
+        id: "webhook_generated",
+      }),
+    );
+
+    expect(captureMock.mock.calls[0][0].requestId).toMatch(/^req_/);
+  });
+
+  it("opens a new execution for each webhook", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_webhook_execution",
+      timestamp: "2026-09-12T00:00:00.000Z",
+      type: "webhook.received",
+      title: "Webhook received",
+      status: "success",
+    });
+
+    await POST(createRequest({ id: "first" }));
+    await POST(createRequest({ id: "second" }));
+
+    const first = captureMock.mock.calls[0][0].executionId;
+    const second = captureMock.mock.calls[1][0].executionId;
+
+    expect(first).toMatch(/^exe_/);
+    expect(second).toMatch(/^exe_/);
+    expect(first).not.toBe(second);
+  });
 });

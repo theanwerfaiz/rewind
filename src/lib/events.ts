@@ -10,9 +10,12 @@ type EventRow = {
   duration: string | null;
   source: string | null;
   trace_id: string | null;
+  span_id: string | null;
   request_id: string | null;
   session_id: string | null;
   user_id: string | null;
+  execution_id: string | null;
+  parent_event_id: string | null;
   metadata: string | null;
   payload: string | null;
   created_at: string;
@@ -30,6 +33,26 @@ function parseJson(value: string | null) {
   }
 }
 
+/**
+ * Converts a stored duration such as "42ms" or "1.5s" to milliseconds.
+ */
+export function parseDurationMs(duration: string | null | undefined) {
+  const match = duration?.match(/^([\d.]+)\s*(ms|s)$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return unit === "s" ? value * 1000 : value;
+}
+
 function mapEvent(row: EventRow): RewindEvent {
   return {
     id: row.id,
@@ -41,9 +64,13 @@ function mapEvent(row: EventRow): RewindEvent {
     source: row.source,
 
     traceId: row.trace_id,
+    spanId: row.span_id,
     requestId: row.request_id,
     sessionId: row.session_id,
     userId: row.user_id,
+
+    executionId: row.execution_id,
+    parentEventId: row.parent_event_id,
 
     metadata: parseJson(row.metadata),
     payload: parseJson(row.payload),
@@ -65,9 +92,12 @@ export function getEvents(): RewindEvent[] {
         duration,
         source,
         trace_id,
+        span_id,
         request_id,
         session_id,
         user_id,
+        execution_id,
+        parent_event_id,
         metadata,
         payload,
         created_at
@@ -93,9 +123,12 @@ export function getEventById(id: string): RewindEvent | null {
         duration,
         source,
         trace_id,
+        span_id,
         request_id,
         session_id,
         user_id,
+        execution_id,
+        parent_event_id,
         metadata,
         payload,
         created_at
@@ -110,6 +143,21 @@ export function getEventById(id: string): RewindEvent | null {
   }
 
   return mapEvent(row);
+}
+
+export function getEventsByExecutionId(executionId: string): RewindEvent[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT *
+      FROM events
+      WHERE execution_id = ?
+      ORDER BY timestamp ASC, created_at ASC
+      `,
+    )
+    .all(executionId) as EventRow[];
+
+  return rows.map(mapEvent);
 }
 
 export function getEventStats() {
@@ -162,22 +210,7 @@ export function getEventStats() {
   }[];
 
   const durations = latencyRows
-    .map((row) => {
-      const match = row.duration.match(/^([\d.]+)\s*(ms|s)$/i);
-
-      if (!match) {
-        return null;
-      }
-
-      const value = Number(match[1]);
-      const unit = match[2].toLowerCase();
-
-      if (!Number.isFinite(value)) {
-        return null;
-      }
-
-      return unit === "s" ? value * 1000 : value;
-    })
+    .map((row) => parseDurationMs(row.duration))
     .filter((value): value is number => value !== null);
 
   const averageLatency =

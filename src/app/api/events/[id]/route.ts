@@ -22,9 +22,12 @@ export async function GET(
           duration,
           source,
           trace_id,
+          span_id,
           request_id,
           session_id,
           user_id,
+          execution_id,
+          parent_event_id,
           metadata,
           payload,
           created_at
@@ -42,9 +45,12 @@ export async function GET(
           duration: string | null;
           source: string | null;
           trace_id: string | null;
+          span_id: string | null;
           request_id: string | null;
           session_id: string | null;
           user_id: string | null;
+          execution_id: string | null;
+          parent_event_id: string | null;
           metadata: string | null;
           payload: string | null;
           created_at: string;
@@ -71,9 +77,12 @@ export async function GET(
       duration: row.duration,
       source: row.source,
       traceId: row.trace_id,
+      spanId: row.span_id,
       requestId: row.request_id,
       sessionId: row.session_id,
       userId: row.user_id,
+      executionId: row.execution_id,
+      parentEventId: row.parent_event_id,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       payload: row.payload ? JSON.parse(row.payload) : null,
       createdAt: row.created_at,

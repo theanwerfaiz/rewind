@@ -2,15 +2,20 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const dataDirectory = path.join(process.cwd(), "data");
+import { migrateDatabase } from "@/lib/db-migrations";
+
+// REWIND_DB_PATH lets tests (and other instances) use their own file.
+const databasePath =
+  process.env.REWIND_DB_PATH ??
+  path.join(process.cwd(), "data", "rewind.db");
+
+const dataDirectory = path.dirname(databasePath);
 
 if (!fs.existsSync(dataDirectory)) {
   fs.mkdirSync(dataDirectory, {
     recursive: true,
   });
 }
-
-const databasePath = path.join(dataDirectory, "rewind.db");
 
 const globalForDatabase = globalThis as unknown as {
   rewindDatabase?: Database.Database;
@@ -79,5 +84,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_replays_timestamp
     ON replays(timestamp);
 `);
+
+migrateDatabase(db);
 
 export default db;

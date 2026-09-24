@@ -1,13 +1,140 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Every color in the app comes from these roles; pages use
+ * them through Tailwind (bg-panel, text-muted, border-line, ...), never as
+ * raw hex values. Dark is the default theme.
+ */
 :root {
-  --background: #070b14;
-  --foreground: #f5f7fb;
-  --muted: #8b95a7;
-  --border: rgba(255, 255, 255, 0.08);
-  --panel: #0d1320;
-  --panel-hover: #111a2a;
-  --accent: #5b8cff;
+  color-scheme: dark;
+
+  --canvas: #080b11;
+  --sidebar: #0b0f17;
+  --panel: #0f141e;
+  --raised: #141b27;
+  --hover: #161e2d;
+  --line: #1d2533;
+  --line-strong: #2a3446;
+
+  --ink: #e7ecf4;
+  --ink-2: #aeb7c6;
+  --muted: #8691a4;
+  --faint: #5d687a;
+
+  --accent: #7c98ff;
+  --accent-ink: #0a1024;
+  --accent-soft: rgba(124, 152, 255, 0.12);
+  --recorder: #ff8a3d;
+
+  --success: #3ccf95;
+  --success-soft: rgba(60, 207, 149, 0.12);
+  --failure: #ff6b61;
+  --failure-soft: rgba(255, 107, 97, 0.12);
+  --warning: #f2c14e;
+  --warning-soft: rgba(242, 193, 78, 0.12);
+}
+
+/*
+ * Light theme: chosen explicitly (data-theme="light"), or following the
+ * system when set to data-theme="system". Same roles, own values.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #f6f7f9;
+  --sidebar: #eef0f4;
+  --panel: #ffffff;
+  --raised: #f1f3f7;
+  --hover: #e9edf3;
+  --line: #e1e5ec;
+  --line-strong: #cbd2dd;
+
+  --ink: #0e1320;
+  --ink-2: #3b4456;
+  --muted: #5b6578;
+  --faint: #8a93a3;
+
+  --accent: #3d5cf5;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(61, 92, 245, 0.1);
+  --recorder: #e8640c;
+
+  --success: #0f8f5f;
+  --success-soft: rgba(15, 143, 95, 0.1);
+  --failure: #d33a2f;
+  --failure-soft: rgba(211, 58, 47, 0.09);
+  --warning: #9a6300;
+  --warning-soft: rgba(214, 150, 0, 0.13);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+
+    --canvas: #f6f7f9;
+    --sidebar: #eef0f4;
+    --panel: #ffffff;
+    --raised: #f1f3f7;
+    --hover: #e9edf3;
+    --line: #e1e5ec;
+    --line-strong: #cbd2dd;
+
+    --ink: #0e1320;
+    --ink-2: #3b4456;
+    --muted: #5b6578;
+    --faint: #8a93a3;
+
+    --accent: #3d5cf5;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(61, 92, 245, 0.1);
+    --recorder: #e8640c;
+
+    --success: #0f8f5f;
+    --success-soft: rgba(15, 143, 95, 0.1);
+    --failure: #d33a2f;
+    --failure-soft: rgba(211, 58, 47, 0.09);
+    --warning: #9a6300;
+    --warning-soft: rgba(214, 150, 0, 0.13);
+  }
+}
+
+/* Compact density tightens every Tailwind spacing step at once. */
+:root[data-density="compact"] {
+  --spacing: 0.21rem;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-sidebar: var(--sidebar);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-recorder: var(--recorder);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-failure: var(--failure);
+  --color-failure-soft: var(--failure-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    monospace;
 }
 
 * {
@@ -22,30 +149,35 @@ body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-button,
-input,
-select {
-  font: inherit;
+/* Layered, so utilities such as text-xs and font-mono still apply. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
-button {
-  cursor: pointer;
-}
 
 ::selection {
-  background: rgba(91, 140, 255, 0.3);
+  background: rgba(124, 152, 255, 0.3);
 }
 
 ::-webkit-scrollbar {
@@ -58,10 +190,19 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #263148;
+  background: var(--line-strong);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #34415c;
+  background: #3a465d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

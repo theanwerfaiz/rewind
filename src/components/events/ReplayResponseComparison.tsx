@@ -41,18 +41,18 @@ function formatValue(value: unknown) {
 
 function statusClass(status: number | undefined) {
   if (status === undefined) {
-    return "bg-white/10 text-slate-400";
+    return "bg-hover text-ink-2";
   }
 
   if (status >= 200 && status < 300) {
-    return "bg-emerald-500/10 text-emerald-400";
+    return "bg-success-soft text-success";
   }
 
   if (status >= 400) {
-    return "bg-red-500/10 text-red-400";
+    return "bg-failure-soft text-failure";
   }
 
-  return "bg-amber-500/10 text-amber-400";
+  return "bg-warning-soft text-warning";
 }
 
 export function ReplayResponseComparison({
@@ -77,12 +77,12 @@ export function ReplayResponseComparison({
   const replayJson = formatJson(replayBody);
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-medium">Response Comparison</h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             Compare the original application response with the replay response.
           </p>
         </div>
@@ -90,8 +90,8 @@ export function ReplayResponseComparison({
         <div
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             hasChanges
-              ? "bg-amber-500/10 text-amber-400"
-              : "bg-emerald-500/10 text-emerald-400"
+              ? "bg-warning-soft text-warning"
+              : "bg-success-soft text-success"
           }`}
         >
           {hasChanges
@@ -110,8 +110,8 @@ export function ReplayResponseComparison({
           onClick={() => setView("side-by-side")}
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             view === "side-by-side"
-              ? "border-white/20 bg-white/10 text-white"
-              : "border-white/10 bg-black/20 text-slate-500 hover:text-white"
+              ? "border-line-strong bg-hover text-ink"
+              : "border-line bg-canvas text-muted hover:text-ink"
           }`}
         >
           Side by side
@@ -122,8 +122,8 @@ export function ReplayResponseComparison({
           onClick={() => setView("json")}
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             view === "json"
-              ? "border-white/20 bg-white/10 text-white"
-              : "border-white/10 bg-black/20 text-slate-500 hover:text-white"
+              ? "border-line-strong bg-hover text-ink"
+              : "border-line bg-canvas text-muted hover:text-ink"
           }`}
         >
           JSON
@@ -159,22 +159,22 @@ export function ReplayResponseComparison({
       {hasChanges ? (
         <div className="mt-6">
           <div className="mb-3">
-            <h3 className="text-sm font-medium text-slate-300">
+            <h3 className="text-sm font-medium text-ink-2">
               Response Changes
             </h3>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-faint">
               Differences between the original and replay responses.
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-white/5">
+          <div className="overflow-hidden rounded-xl border border-line">
             <div className="divide-y divide-white/5">
               {statusChanged ? (
-                <div className="bg-black/20 px-4 py-4">
+                <div className="bg-canvas px-4 py-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <div className="font-mono text-sm text-slate-300">
+                      <div className="font-mono text-sm text-ink-2">
                         status
                       </div>
 
@@ -187,7 +187,7 @@ export function ReplayResponseComparison({
                           {originalStatus ?? "unknown"}
                         </span>
 
-                        <span className="text-slate-600">→</span>
+                        <span className="text-faint">→</span>
 
                         <span
                           className={`rounded-md px-2 py-1 text-xs font-medium ${statusClass(
@@ -199,7 +199,7 @@ export function ReplayResponseComparison({
                       </div>
                     </div>
 
-                    <span className="self-start rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
+                    <span className="self-start rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning">
                       Changed
                     </span>
                   </div>
@@ -209,34 +209,34 @@ export function ReplayResponseComparison({
               {bodyChanges.map((change, index) => (
                 <div
                   key={`${change.path}-${index}`}
-                  className="bg-black/20 px-4 py-4"
+                  className="bg-canvas px-4 py-4"
                 >
-                  <div className="font-mono text-sm text-slate-300">
+                  <div className="font-mono text-sm text-ink-2">
                     {change.path}
                   </div>
 
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                     {change.original !== undefined ? (
-                      <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-2">
-                        <span className="mr-2 text-xs text-slate-600">
+                      <div className="rounded-lg border border-failure/10 bg-failure-soft px-3 py-2">
+                        <span className="mr-2 text-xs text-faint">
                           Original:
                         </span>
 
-                        <code className="break-all text-xs text-slate-300">
+                        <code className="break-all text-xs text-ink-2">
                           {formatValue(change.original)}
                         </code>
                       </div>
                     ) : null}
 
-                    <span className="text-slate-600">→</span>
+                    <span className="text-faint">→</span>
 
                     {change.replay !== undefined ? (
-                      <div className="rounded-lg border border-emerald-500/10 bg-emerald-500/5 px-3 py-2">
-                        <span className="mr-2 text-xs text-slate-600">
+                      <div className="rounded-lg border border-success/10 bg-success-soft px-3 py-2">
+                        <span className="mr-2 text-xs text-faint">
                           Replay:
                         </span>
 
-                        <code className="break-all text-xs text-slate-300">
+                        <code className="break-all text-xs text-ink-2">
                           {formatValue(change.replay)}
                         </code>
                       </div>
@@ -264,13 +264,13 @@ function ResponsePanel({
   body: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/20">
-      <div className="border-b border-white/5 px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-line bg-canvas">
+      <div className="border-b border-line px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-medium text-slate-300">{title}</div>
+            <div className="text-sm font-medium text-ink-2">{title}</div>
 
-            <div className="mt-1 text-xs text-slate-600">{description}</div>
+            <div className="mt-1 text-xs text-faint">{description}</div>
           </div>
 
           <span
@@ -283,7 +283,7 @@ function ResponsePanel({
         </div>
       </div>
 
-      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-slate-300">
+      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-ink-2">
         {body}
       </pre>
     </div>
@@ -292,12 +292,12 @@ function ResponsePanel({
 
 function JsonColumn({ title, value }: { title: string; value: string }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/20">
-      <div className="border-b border-white/5 px-4 py-3 text-sm font-medium text-slate-300">
+    <div className="overflow-hidden rounded-xl border border-line bg-canvas">
+      <div className="border-b border-line px-4 py-3 text-sm font-medium text-ink-2">
         {title}
       </div>
 
-      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-slate-300">
+      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-ink-2">
         {value}
       </pre>
     </div>

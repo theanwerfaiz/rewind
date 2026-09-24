@@ -4,6 +4,10 @@ import { NextRequest } from "next/server";
 
 import { POST } from "@/app/api/test-runner/route";
 
+import db from "@/lib/db";
+
+import { getTestRunsForEvent } from "@/lib/test-runs";
+
 const temporaryDirectory = ".rewind-test-runs";
 
 afterEach(async () => {
@@ -132,5 +136,67 @@ describe("POST /api/test-runner", () => {
     expect(data.success).toBe(false);
 
     expect(data.error).toBe("Test code is too large.");
+  });
+
+  it("records the run against the event it reproduces", async () => {
+    const eventId = `evt_testrun_${Date.now()}`;
+
+    db.prepare(
+      `
+      INSERT INTO events (
+        id, timestamp, type, title, status, execution_id, created_at
+      )
+      VALUES (?, ?, 'http.request', 'POST /api/x', 'error', 'exe_testrun', ?)
+      `,
+    ).run(eventId, new Date().toISOString(), new Date().toISOString());
+
+    const response = await POST(
+      createRequest({
+        framework: "vitest",
+        eventId,
+        code: `
+          import { expect, it } from "vitest";
+
+          it("fails", () => {
+            expect(1).toBe(2);
+          });
+        `,
+      }),
+    );
+
+    const data = await response.json();
+
+    expect(data.testRunId).toMatch(/^trun_/);
+
+    expect(getTestRunsForEvent(eventId)).toEqual([
+      expect.objectContaining({
+        id: data.testRunId,
+        eventId,
+        executionId: "exe_testrun",
+        framework: "vitest",
+        success: false,
+      }),
+    ]);
+
+    db.prepare(`DELETE FROM test_runs WHERE event_id = ?`).run(eventId);
+    db.prepare(`DELETE FROM events WHERE id = ?`).run(eventId);
+  });
+
+  it("does not record runs for unknown events", async () => {
+    const response = await POST(
+      createRequest({
+        framework: "vitest",
+        eventId: "evt_missing",
+        code: `
+          import { expect, it } from "vitest";
+
+          it("passes", () => {
+            expect(true).toBe(true);
+          });
+        `,
+      }),
+    );
+
+    expect((await response.json()).testRunId).toBeNull();
   });
 });

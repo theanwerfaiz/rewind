@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type TestGeneratorProps = {
@@ -18,6 +19,8 @@ type TestRunResult = {
 };
 
 export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
+  const router = useRouter();
+
   const [framework, setFramework] = useState<Framework>("playwright");
 
   const [loading, setLoading] = useState(false);
@@ -96,6 +99,7 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
         body: JSON.stringify({
           framework,
           code,
+          eventId,
         }),
       });
 
@@ -112,6 +116,9 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
         stderr: typeof data.stderr === "string" ? data.stderr : "",
         duration: typeof data.duration === "string" ? data.duration : "—",
       });
+
+      // The run is recorded against this event; show it in the history.
+      router.refresh();
     } catch (error) {
       setRunError(
         error instanceof Error ? error.message : "Failed to execute test",
@@ -136,12 +143,12 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
   }
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-medium">Generate Test</h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             Turn this captured request into a repeatable regression test.
           </p>
         </div>
@@ -156,8 +163,8 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
             }}
             className={`rounded-lg border px-3 py-2 text-xs transition ${
               framework === "playwright"
-                ? "border-white/20 bg-white/10 text-white"
-                : "border-white/10 bg-white/[0.02] text-slate-500 hover:text-slate-300"
+                ? "border-line-strong bg-hover text-ink"
+                : "border-line bg-panel text-muted hover:text-ink-2"
             }`}
           >
             Playwright
@@ -172,8 +179,8 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
             }}
             className={`rounded-lg border px-3 py-2 text-xs transition ${
               framework === "vitest"
-                ? "border-white/20 bg-white/10 text-white"
-                : "border-white/10 bg-white/[0.02] text-slate-500 hover:text-slate-300"
+                ? "border-line-strong bg-hover text-ink"
+                : "border-line bg-panel text-muted hover:text-ink-2"
             }`}
           >
             Vitest
@@ -183,7 +190,7 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
             type="button"
             onClick={handleGenerate}
             disabled={loading}
-            className="rounded-lg bg-white px-4 py-2 text-xs font-medium text-black transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-accent px-4 py-2 text-xs font-medium text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Generating..." : "Generate Test"}
           </button>
@@ -191,12 +198,12 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
       </div>
 
       {error && (
-        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-red-400">
+        <div className="mt-5 rounded-xl border border-failure/20 bg-failure-soft p-4">
+          <div className="text-xs font-medium uppercase tracking-wider text-failure">
             Generation failed
           </div>
 
-          <p className="mt-2 text-sm text-red-300">{error}</p>
+          <p className="mt-2 text-sm text-failure">{error}</p>
         </div>
       )}
 
@@ -204,11 +211,11 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
         <div className="mt-6">
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-xs uppercase tracking-wider text-slate-600">
+              <div className="text-xs uppercase tracking-wider text-faint">
                 Generated test
               </div>
 
-              <div className="mt-1 font-mono text-xs text-slate-400">
+              <div className="mt-1 font-mono text-xs text-ink-2">
                 {filename}
               </div>
             </div>
@@ -219,7 +226,7 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
                   type="button"
                   onClick={handleRun}
                   disabled={running}
-                  className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-black transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-accent px-3 py-2 text-xs font-medium text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {running ? "Running..." : "Run Test"}
                 </button>
@@ -228,36 +235,36 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
               <button
                 type="button"
                 onClick={handleCopy}
-                className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+                className="rounded-lg border border-line bg-panel px-3 py-2 text-xs text-ink-2 transition hover:bg-raised hover:text-ink"
               >
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
           </div>
 
-          <pre className="max-h-[500px] overflow-auto rounded-xl border border-white/10 bg-black/40 p-5 text-sm leading-6 text-slate-300">
+          <pre className="max-h-[500px] overflow-auto rounded-xl border border-line bg-black/40 p-5 text-sm leading-6 text-ink-2">
             {code}
           </pre>
 
           {runError && (
-            <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-              <div className="text-xs font-medium uppercase tracking-wider text-red-400">
+            <div className="mt-5 rounded-xl border border-failure/20 bg-failure-soft p-4">
+              <div className="text-xs font-medium uppercase tracking-wider text-failure">
                 Execution failed
               </div>
 
-              <p className="mt-2 text-sm text-red-300">{runError}</p>
+              <p className="mt-2 text-sm text-failure">{runError}</p>
             </div>
           )}
 
           {runResult && (
-            <div className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-black/20">
-              <div className="flex flex-col gap-4 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-5 overflow-hidden rounded-xl border border-line bg-canvas">
+              <div className="flex flex-col gap-4 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
                       runResult.success
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-red-500/10 text-red-400"
+                        ? "bg-success-soft text-success"
+                        : "bg-failure-soft text-failure"
                     }`}
                   >
                     {runResult.success ? "✓" : "×"}
@@ -266,13 +273,13 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
                   <div>
                     <div
                       className={`text-sm font-medium ${
-                        runResult.success ? "text-emerald-400" : "text-red-400"
+                        runResult.success ? "text-success" : "text-failure"
                       }`}
                     >
                       {runResult.success ? "Test passed" : "Test failed"}
                     </div>
 
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-muted">
                       Exit code {runResult.exitCode}
                       {" · "}
                       {runResult.duration}
@@ -284,19 +291,19 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
                   type="button"
                   onClick={handleRun}
                   disabled={running}
-                  className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-line bg-panel px-3 py-2 text-xs text-ink-2 transition hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {running ? "Running..." : "Run Again"}
                 </button>
               </div>
 
               {runResult.stdout && (
-                <div className="border-b border-white/10 p-4">
-                  <div className="mb-2 text-xs uppercase tracking-wider text-slate-600">
+                <div className="border-b border-line p-4">
+                  <div className="mb-2 text-xs uppercase tracking-wider text-faint">
                     stdout
                   </div>
 
-                  <pre className="max-h-[300px] overflow-auto rounded-lg bg-black/40 p-4 font-mono text-xs leading-5 text-slate-400">
+                  <pre className="max-h-[300px] overflow-auto rounded-lg bg-black/40 p-4 font-mono text-xs leading-5 text-ink-2">
                     {runResult.stdout}
                   </pre>
                 </div>
@@ -304,18 +311,18 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
 
               {runResult.stderr && (
                 <div className="p-4">
-                  <div className="mb-2 text-xs uppercase tracking-wider text-slate-600">
+                  <div className="mb-2 text-xs uppercase tracking-wider text-faint">
                     stderr
                   </div>
 
-                  <pre className="max-h-[300px] overflow-auto rounded-lg bg-black/40 p-4 font-mono text-xs leading-5 text-red-300">
+                  <pre className="max-h-[300px] overflow-auto rounded-lg bg-black/40 p-4 font-mono text-xs leading-5 text-failure">
                     {runResult.stderr}
                   </pre>
                 </div>
               )}
 
               {!runResult.stdout && !runResult.stderr && (
-                <div className="p-4 text-xs text-slate-500">
+                <div className="p-4 text-xs text-muted">
                   No output was produced.
                 </div>
               )}
