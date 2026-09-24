@@ -3,11 +3,13 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { ExecutionsChart } from "@/components/overview/ExecutionsChart";
+import { OnboardingChecklist } from "@/components/overview/OnboardingChecklist";
 import { EventIcon } from "@/components/ui/EventIcon";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState, Panel, Stat } from "@/components/ui/primitives";
 import { Badge, StatusDot } from "@/components/ui/StatusBadge";
 import { formatRelative, formatSpan } from "@/lib/format";
+import { getOnboardingSteps } from "@/lib/onboarding";
 import { getOverview, type AttentionItem } from "@/lib/overview";
 
 function AttentionBadge({ item }: { item: AttentionItem }) {
@@ -39,6 +41,8 @@ export default async function OverviewPage() {
 
   const overview = getOverview();
 
+  const onboarding = getOnboardingSteps();
+
   const unfixed = overview.attention.filter(
     (item) => item.status.kind !== "fixed",
   );
@@ -56,6 +60,8 @@ export default async function OverviewPage() {
     return (
       <>
         <PageHeader title="Overview" />
+
+        <OnboardingChecklist steps={onboarding} />
 
         <EmptyState
           icon={<Radio size={28} />}
@@ -86,6 +92,8 @@ export default async function OverviewPage() {
               }.`
         }
       />
+
+      <OnboardingChecklist steps={onboarding} />
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
