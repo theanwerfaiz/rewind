@@ -3,53 +3,69 @@
 import {
   Activity,
   AlertTriangle,
-  FileCode2,
   GitBranch,
   List,
+  Package,
   Play,
   Settings,
-  Webhook,
+  ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import { RewindLogo } from "../icons/RewindLogo";
 
 type NavItem = {
   label: string;
+  href: string;
   icon: React.ElementType;
-  active?: boolean;
-  badge?: string;
 };
 
 const navigation: NavItem[] = [
   {
     label: "Events",
+    href: "/",
     icon: List,
-    active: true,
+  },
+  {
+    label: "Executions",
+    href: "/executions",
+    icon: GitBranch,
   },
   {
     label: "Timeline",
+    href: "/timeline",
     icon: Activity,
   },
   {
-    label: "Webhooks",
-    icon: Webhook,
-    badge: "12",
-  },
-  {
-    label: "Errors",
+    label: "Failures",
+    href: "/fingerprints",
     icon: AlertTriangle,
-    badge: "3",
   },
   {
     label: "Replays",
+    href: "/replays",
     icon: Play,
   },
   {
-    label: "Tests",
-    icon: FileCode2,
+    label: "Capsules",
+    href: "/capsules",
+    icon: Package,
+  },
+  {
+    label: "Verifications",
+    href: "/verifications",
+    icon: ShieldCheck,
   },
 ];
 
+function isActive(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
+
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="flex h-screen w-[240px] shrink-0 flex-col border-r border-white/[0.07] bg-[#090e18]">
       <div className="flex h-[72px] items-center border-b border-white/[0.07] px-5">
@@ -65,31 +81,22 @@ export function Sidebar() {
           {navigation.map((item) => {
             const Icon = item.icon;
 
+            const active = isActive(pathname, item.href);
+
             return (
-              <button
+              <Link
                 key={item.label}
+                href={item.href}
                 className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-                  item.active
+                  active
                     ? "bg-blue-500/15 text-blue-300"
                     : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                 }`}
               >
-                <Icon size={17} strokeWidth={item.active ? 2.2 : 1.8} />
+                <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
 
                 <span className="flex-1 text-left">{item.label}</span>
-
-                {item.badge && (
-                  <span
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] ${
-                      item.active
-                        ? "bg-blue-500/20 text-blue-300"
-                        : "bg-white/[0.05] text-slate-500"
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
+              </Link>
             );
           })}
         </nav>
