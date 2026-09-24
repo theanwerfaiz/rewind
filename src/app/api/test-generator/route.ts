@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { generateTest } from "@/lib/test-generator";
 import type { RewindEvent } from "@/lib/mock-events";
 
@@ -129,9 +130,19 @@ export async function POST(request: NextRequest) {
       createdAt: row.created_at,
     };
 
+    const fingerprint = event.executionId
+      ? (db
+          .prepare(`SELECT fingerprint_id FROM executions WHERE id = ?`)
+          .get(event.executionId) as { fingerprint_id: string | null } | undefined)
+      : undefined;
+
     const code = generateTest({
       event,
       framework,
+      invariants: event.executionId
+        ? getInvariantsForExecution(event.executionId)
+        : [],
+      fingerprintId: fingerprint?.fingerprint_id ?? null,
     });
 
     return NextResponse.json({

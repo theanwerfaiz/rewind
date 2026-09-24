@@ -201,6 +201,26 @@ export function migrateDatabase(db: Database.Database) {
         );
     `);
 
+    // Generated regression test runs, linked to the event they reproduce.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS test_runs (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        execution_id TEXT,
+        framework TEXT NOT NULL,
+        success INTEGER NOT NULL,
+        exit_code INTEGER NOT NULL,
+        duration TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_test_runs_event_id
+        ON test_runs(event_id);
+
+      CREATE INDEX IF NOT EXISTS idx_test_runs_execution_id
+        ON test_runs(execution_id);
+    `);
+
     // Invariants: expected truths attached to an execution.
     db.exec(`
       CREATE TABLE IF NOT EXISTS invariants (

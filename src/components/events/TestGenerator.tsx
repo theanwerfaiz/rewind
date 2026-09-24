@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type TestGeneratorProps = {
@@ -18,6 +19,8 @@ type TestRunResult = {
 };
 
 export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
+  const router = useRouter();
+
   const [framework, setFramework] = useState<Framework>("playwright");
 
   const [loading, setLoading] = useState(false);
@@ -96,6 +99,7 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
         body: JSON.stringify({
           framework,
           code,
+          eventId,
         }),
       });
 
@@ -112,6 +116,9 @@ export function TestGenerator({ eventId, eventType }: TestGeneratorProps) {
         stderr: typeof data.stderr === "string" ? data.stderr : "",
         duration: typeof data.duration === "string" ? data.duration : "—",
       });
+
+      // The run is recorded against this event; show it in the history.
+      router.refresh();
     } catch (error) {
       setRunError(
         error instanceof Error ? error.message : "Failed to execute test",

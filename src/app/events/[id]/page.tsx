@@ -7,6 +7,7 @@ import { ReplayPanel } from "@/components/events/ReplayPanel";
 import { TestGenerator } from "@/components/events/TestGenerator";
 import { getEventById } from "@/lib/events";
 import { getReplaysForEvent } from "@/lib/replays";
+import { getTestRunsForEvent } from "@/lib/test-runs";
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -50,6 +51,8 @@ export default async function EventDetailsPage({
   const payload = event.payload;
 
   const replays = getReplaysForEvent(event.id);
+
+  const testRuns = getTestRunsForEvent(event.id);
 
   const isHttpEvent = event.type === "http.request";
 
@@ -377,6 +380,43 @@ export default async function EventDetailsPage({
 
         {/* Test Generation */}
         <TestGenerator eventId={event.id} eventType={event.type} />
+
+        {testRuns.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <h2 className="text-lg font-medium">Regression test runs</h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Generated tests run against this event, newest first.
+            </p>
+
+            <ul className="mt-4 space-y-1.5">
+              {testRuns.map((run) => (
+                <li
+                  key={run.id}
+                  className="flex items-center gap-3 rounded-lg bg-black/20 px-3 py-2 text-sm"
+                >
+                  <span
+                    className={`w-12 shrink-0 font-mono text-xs ${
+                      run.success ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    {run.success ? "PASS" : "FAIL"}
+                  </span>
+
+                  <span className="text-slate-400">{run.framework}</span>
+
+                  <span className="font-mono text-xs text-slate-600">
+                    {run.duration}
+                  </span>
+
+                  <span className="ml-auto text-xs text-slate-600">
+                    {formatDate(run.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Raw Metadata */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
