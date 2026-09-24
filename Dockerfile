@@ -20,11 +20,15 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Rewind sends nothing to third parties; keep Next.js telemetry off too.
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 FROM base AS runner
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
 

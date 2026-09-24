@@ -230,7 +230,9 @@ describe("POST /api/webhooks/capture", () => {
 
     const data = await response.json();
 
-    expect(data.error).toContain("Capture service unavailable");
+    // The internal failure stays in the server log, not the response.
+    expect(data.error).toBe("Webhook capture failed.");
+    expect(data.error).not.toContain("Capture service unavailable");
   });
 
   it("captures correlation IDs from webhook headers", async () => {
@@ -302,5 +304,32 @@ describe("POST /api/webhooks/capture", () => {
     expect(first).toMatch(/^exe_/);
     expect(second).toMatch(/^exe_/);
     expect(first).not.toBe(second);
+  });
+
+  it("redacts a ?token= query parameter before storing the path", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_token_webhook",
+      timestamp: "2026-09-12T00:00:00.000Z",
+      type: "webhook.received",
+      title: "Webhook received",
+      status: "success",
+    });
+
+    await POST(
+      new NextRequest(
+        "http://localhost:3000/api/webhooks/capture?token=super-secret&source=stripe",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ok: true }),
+        },
+      ),
+    );
+
+    const path = (captureMock.mock.calls[0][0].metadata as { path: string }).path;
+
+    expect(path).not.toContain("super-secret");
+    expect(path).toContain("source=stripe");
+    expect(path.startsWith("/api/webhooks/capture?")).toBe(true);
   });
 });

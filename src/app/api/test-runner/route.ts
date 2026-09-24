@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   let body: TestRunnerRequest;
 
   try {
-    body = (await request.json()) as TestRunnerRequest;
+    body = (await readJsonBody(request)) as TestRunnerRequest;
   } catch {
     return NextResponse.json(
       {

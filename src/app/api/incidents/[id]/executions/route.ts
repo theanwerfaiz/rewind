@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { setIncidentExecution } from "@/lib/incidents";
 
@@ -11,7 +12,7 @@ type Context = {
 async function handle(request: NextRequest, context: Context, remove: boolean) {
   const { id } = await context.params;
 
-  const body = (await request.json().catch(() => null)) as { executionId?: unknown } | null;
+  const body = (await readJsonBody(request).catch(() => null)) as { executionId?: unknown } | null;
 
   const result = setIncidentExecution(id, body?.executionId, remove);
 

@@ -127,8 +127,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Failed to load replays.",
+        // Details stay in the server log; they can name paths or internals.
+        error: "Failed to load replays.",
       },
       {
         status: 500,

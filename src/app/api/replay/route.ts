@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { runReplay } from "@/lib/replay-runner";
 
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = await readJsonBody(request);
   } catch {
     return NextResponse.json(
       {

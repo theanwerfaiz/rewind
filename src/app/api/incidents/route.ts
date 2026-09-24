@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { createIncident, getIncidents } from "@/lib/incidents";
 
@@ -11,7 +12,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await readJsonBody(request).catch(() => null)) as Record<string, unknown> | null;
 
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Request body must be a JSON object." }, { status: 400 });

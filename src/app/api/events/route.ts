@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 import db from "@/lib/db";
 import { recordParentEdge } from "@/lib/event-edges";
 import { recordExecutionEvent } from "@/lib/executions";
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateEventInput;
+    const body = (await readJsonBody(request)) as CreateEventInput;
 
     if (!body.type || typeof body.type !== "string") {
       return NextResponse.json(

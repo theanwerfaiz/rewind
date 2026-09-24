@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { getExecutionById } from "@/lib/executions";
 import { addInvariant, getInvariantsForExecution } from "@/lib/invariant-store";
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest, context: Context) {
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = await readJsonBody(request);
   } catch {
     return NextResponse.json(
       {

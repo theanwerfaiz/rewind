@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_CAPSULE_BODY_BYTES, readJsonBody } from "@/lib/request-body";
 
 import { validateCapsule } from "@/lib/capsule";
 import {
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = await readJsonBody(request, MAX_CAPSULE_BODY_BYTES);
   } catch {
     return NextResponse.json(
       {

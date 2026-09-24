@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { getSettings, updateSettings } from "@/lib/settings";
 
@@ -14,7 +15,7 @@ export async function PUT(request: NextRequest) {
   let body: unknown;
 
   try {
-    body = await request.json();
+    body = await readJsonBody(request);
   } catch {
     return NextResponse.json(
       {
