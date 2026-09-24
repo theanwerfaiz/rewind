@@ -14,6 +14,8 @@ import { GET as getExecution } from "@/app/api/executions/[id]/route";
 
 import { GET as listExecutions } from "@/app/api/executions/route";
 
+import { GET as compareExecutionsRoute } from "@/app/api/executions/compare/route";
+
 import { GET as getFingerprint } from "@/app/api/fingerprints/[id]/route";
 
 import { GET as listFingerprints } from "@/app/api/fingerprints/route";
@@ -496,5 +498,112 @@ describe("failure fingerprints API", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("execution compare API", () => {
+  async function captureCheckout(failing: boolean) {
+    const suffix = uniqueSuffix();
+
+    const executionId = `exe_cmp_${suffix}`;
+
+    const rootId = `evt_cmproot_${suffix}`;
+
+    createdExecutionIds.push(executionId);
+
+    await createEvent({
+      id: `evt_cmppay_${suffix}`,
+      timestamp: "2026-09-01T10:00:00.020Z",
+      type: failing ? "error" : "database.query",
+      title: failing ? "Payment timeout after 5000ms" : "DB: commit order",
+      status: failing ? "error" : "success",
+      executionId,
+      parentEventId: rootId,
+    });
+
+    await createEvent({
+      id: rootId,
+      timestamp: "2026-09-01T10:00:00.000Z",
+      duration: failing ? "200ms" : "40ms",
+      type: "http.request",
+      title: "POST /api/cmp-test/checkout",
+      status: failing ? "error" : "success",
+      executionId,
+      parentEventId: null,
+      metadata: {
+        response: {
+          status: failing ? 500 : 200,
+        },
+      },
+    });
+
+    return executionId;
+  }
+
+  function compare(original?: string, candidate?: string) {
+    const params = new URLSearchParams();
+
+    if (original) {
+      params.set("original", original);
+    }
+
+    if (candidate) {
+      params.set("candidate", candidate);
+    }
+
+    return compareExecutionsRoute(
+      new NextRequest(`http://localhost:3000/api/executions/compare?${params}`),
+    );
+  }
+
+  it("diffs a failed execution against a fixed one", async () => {
+    const original = await captureCheckout(true);
+    const candidate = await captureCheckout(false);
+
+    const response = await compare(original, candidate);
+
+    expect(response.status).toBe(200);
+
+    const { diff } = await response.json();
+
+    expect(diff.outcome).toBe("fixed");
+
+    expect(diff.original).toMatchObject({
+      executionId: original,
+      status: "error",
+      httpStatus: 500,
+    });
+
+    expect(diff.candidate).toMatchObject({
+      executionId: candidate,
+      status: "success",
+      httpStatus: 200,
+    });
+
+    expect(diff.summary).toEqual(
+      expect.arrayContaining([
+        "Failure removed: Payment timeout after 5000ms",
+        "Added event: DB: commit order",
+      ]),
+    );
+  });
+
+  it("reports the same failure as still failing", async () => {
+    const first = await captureCheckout(true);
+    const second = await captureCheckout(true);
+
+    const { diff } = await (await compare(first, second)).json();
+
+    expect(diff.outcome).toBe("still_failing");
+  });
+
+  it("requires both execution IDs", async () => {
+    expect((await compare("exe_only_one")).status).toBe(400);
+  });
+
+  it("returns 404 when an execution does not exist", async () => {
+    const existing = await captureCheckout(false);
+
+    expect((await compare(existing, "exe_missing")).status).toBe(404);
   });
 });

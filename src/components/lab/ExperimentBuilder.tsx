@@ -23,6 +23,7 @@ type ExperimentResult = {
   statusText: string;
   duration: string;
   body: unknown;
+  sourceExecutionId: string | null;
   resultExecutionId: string | null;
 };
 
@@ -330,6 +331,15 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
                 <span className="text-slate-600">
                   The target did not capture an execution.
                 </span>
+              )}
+
+              {result.resultExecutionId && result.sourceExecutionId && (
+                <Link
+                  href={`/executions/compare?original=${result.sourceExecutionId}&candidate=${result.resultExecutionId}`}
+                  className="text-blue-300 hover:text-blue-200"
+                >
+                  Diff executions →
+                </Link>
               )}
 
               <Link

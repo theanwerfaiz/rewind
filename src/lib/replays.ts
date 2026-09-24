@@ -133,3 +133,35 @@ export function getReplayById(replayId: string): Replay | null {
 
   return serializeReplay(row);
 }
+
+/**
+ * The replay that produced an execution, if the execution came from one.
+ */
+export function getReplayByResultExecutionId(executionId: string) {
+  const row = db
+    .prepare(
+      `
+      SELECT
+        id,
+        event_id,
+        timestamp,
+        method,
+        url,
+        status,
+        duration,
+        payload,
+        response_body,
+        response_headers,
+        created_at,
+        label,
+        mutations,
+        source_execution_id,
+        result_execution_id
+      FROM replays
+      WHERE result_execution_id = ?
+      `,
+    )
+    .get(executionId) as ReplayRow | undefined;
+
+  return row ? serializeReplay(row) : null;
+}

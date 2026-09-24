@@ -5,6 +5,7 @@ import { connection } from "next/server";
 import type { GraphNode } from "@/lib/event-graph";
 import { parseDurationMs } from "@/lib/events";
 import { getExecutionGraphById } from "@/lib/executions";
+import { getReplayByResultExecutionId } from "@/lib/replays";
 
 function getEventIcon(type: string) {
   switch (type) {
@@ -98,6 +99,8 @@ export default async function ExecutionPage({
 
   const { execution, graph } = result;
 
+  const replay = getReplayByResultExecutionId(execution.id);
+
   const startedAt = Date.parse(execution.startedAt);
 
   const totalMs = Math.max(Date.parse(execution.endedAt) - startedAt, 0);
@@ -186,6 +189,30 @@ export default async function ExecutionPage({
           <p className="mt-2 break-all font-mono text-xs text-slate-500">
             {execution.id}
           </p>
+
+          {replay && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.04] px-4 py-3 text-sm">
+              <span className="text-blue-200">
+                Replay{replay.label ? `: ${replay.label}` : ""}
+              </span>
+
+              {replay.sourceExecutionId && (
+                <Link
+                  href={`/executions/compare?original=${replay.sourceExecutionId}&candidate=${execution.id}`}
+                  className="text-blue-300 hover:text-blue-200"
+                >
+                  Diff with original →
+                </Link>
+              )}
+
+              <Link
+                href={`/lab/${replay.eventId}`}
+                className="text-slate-400 hover:text-slate-200"
+              >
+                Replay Lab
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">

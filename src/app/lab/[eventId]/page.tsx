@@ -215,6 +215,16 @@ export default async function ReplayLabPage({
                     </Link>
                   )}
 
+                  {experiment.resultExecutionId &&
+                    experiment.sourceExecutionId && (
+                      <Link
+                        href={`/executions/compare?original=${experiment.sourceExecutionId}&candidate=${experiment.resultExecutionId}`}
+                        className="text-blue-300 hover:text-blue-200"
+                      >
+                        Diff
+                      </Link>
+                    )}
+
                   <Link
                     href={`/replays/${experiment.id}`}
                     className="text-slate-400 hover:text-slate-200"
