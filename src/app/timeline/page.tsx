@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import db from "@/lib/db";
+import { EventIcon } from "@/components/ui/EventIcon";
+import { StatusDot } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Stat } from "@/components/ui/primitives";
 
@@ -30,66 +32,6 @@ function formatDate(timestamp: string) {
     month: "short",
     day: "numeric",
   });
-}
-
-function getEventIcon(type: string) {
-  switch (type) {
-    case "webhook.received":
-      return "↗";
-
-    case "http.request":
-      return "→";
-
-    case "http.dependency":
-      return "⇄";
-
-    case "error":
-      return "!";
-
-    case "database.query":
-      return "◇";
-
-    case "agent.action":
-      return "✦";
-
-    case "command":
-      return "$";
-
-    case "deployment":
-      return "▲";
-
-    case "config.change":
-      return "⚙";
-
-    default:
-      return "•";
-  }
-}
-
-function getStatusClass(status: string) {
-  switch (status) {
-    case "success":
-      return "bg-success";
-
-    case "error":
-      return "bg-failure";
-
-    default:
-      return "bg-faint";
-  }
-}
-
-function getStatusTextClass(status: string) {
-  switch (status) {
-    case "success":
-      return "text-success";
-
-    case "error":
-      return "text-failure";
-
-    default:
-      return "text-ink-2";
-  }
 }
 
 async function getTimelineEvents(): Promise<TimelineEvent[]> {
@@ -187,100 +129,61 @@ export default async function TimelinePage() {
               return (
                 <section
                   key={group.key}
-                  className="rounded-2xl border border-line bg-panel p-6"
+                  className="overflow-hidden rounded-xl border border-line bg-panel"
                 >
-                  <div className="mb-6 flex flex-col gap-3 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-sm font-medium text-ink">
-                          {hasRequest ? "Request Story" : "Standalone Event"}
-                        </h2>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-sm font-medium text-ink">
+                        {hasRequest ? "Request" : "Standalone event"}
+                      </h2>
 
-                        <span className="rounded-full bg-raised px-2.5 py-1 text-xs text-muted">
-                          {group.events.length}{" "}
-                          {group.events.length === 1 ? "event" : "events"}
-                        </span>
-                      </div>
+                      <span className="rounded-full bg-raised px-2 py-0.5 text-xs text-muted">
+                        {group.events.length}{" "}
+                        {group.events.length === 1 ? "event" : "events"}
+                      </span>
 
-                      <p className="mt-1 text-xs text-faint">
+                      <span className="text-xs text-faint">
                         {formatDate(firstEvent.timestamp)}
-                      </p>
+                      </span>
                     </div>
 
                     {firstEvent.request_id && (
-                      <div className="max-w-full break-all rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-xs text-faint">
+                      <span className="max-w-full truncate font-mono text-xs text-faint">
                         {firstEvent.request_id}
-                      </div>
+                      </span>
                     )}
                   </div>
 
-                  <div className="relative">
-                    <div className="absolute bottom-4 left-[19px] top-4 w-px bg-hover" />
-
-                    <div className="space-y-1">
-                      {group.events.map((event) => (
+                  <ol className="divide-y divide-line">
+                    {group.events.map((event) => (
+                      <li key={event.id}>
                         <Link
-                          key={event.id}
                           href={`/events/${event.id}`}
-                          className="group relative flex gap-4 rounded-xl px-1 py-4 transition hover:bg-panel"
+                          className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-raised"
                         >
-                          <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-panel font-mono text-sm text-ink-2 transition group-hover:border-line-strong group-hover:text-ink">
-                            {getEventIcon(event.type)}
-                          </div>
+                          <EventIcon type={event.type} status={event.status} size="sm" />
 
-                          <div className="min-w-0 flex-1 pt-0.5">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium text-ink group-hover:text-ink">
-                                  {event.title}
-                                </div>
-
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-faint">
-                                  <span>{event.type}</span>
-
-                                  {event.source && (
-                                    <>
-                                      <span>•</span>
-
-                                      <span>{event.source}</span>
-                                    </>
-                                  )}
-
-                                  {event.duration && (
-                                    <>
-                                      <span>•</span>
-
-                                      <span>{event.duration}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex shrink-0 items-center gap-3">
-                                <span className="font-mono text-xs text-faint">
-                                  {formatTime(event.timestamp)}
-                                </span>
-
-                                <span
-                                  className={`h-2 w-2 rounded-full ${getStatusClass(
-                                    event.status,
-                                  )}`}
-                                />
-                              </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm text-ink">
+                              {event.title}
                             </div>
 
-                            <div
-                              className={`mt-2 text-xs uppercase tracking-wider ${getStatusTextClass(
-                                event.status,
-                              )}`}
-                            >
-                              {event.status}
+                            <div className="mt-0.5 truncate text-xs text-muted">
+                              {event.type}
+                              {event.source ? ` · ${event.source}` : ""}
+                              {event.duration ? ` · ${event.duration}` : ""}
                             </div>
                           </div>
+
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
+                            {formatTime(event.timestamp)}
+                          </span>
+
+                          <StatusDot status={event.status} />
                         </Link>
-                      ))}
-                    </div>
-                  </div>
+                      </li>
+                    ))}
+                  </ol>
                 </section>
               );
             })}

@@ -97,7 +97,7 @@ export default async function ReplayLabPage({
       />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <section className="rounded-2xl border border-line bg-panel p-5">
+          <section className="min-w-0 rounded-2xl border border-line bg-panel p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
                 Original

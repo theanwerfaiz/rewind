@@ -307,8 +307,8 @@ export function ExperimentBuilder({
   const resultOk = result !== null && result.status < 400;
 
   return (
-    <div className="grid gap-6 2xl:grid-cols-2">
-      <section className="rounded-2xl border border-accent/20 bg-accent-soft p-5">
+    <div className="grid min-w-0 gap-6 2xl:grid-cols-2">
+      <section className="min-w-0 rounded-2xl border border-accent/20 bg-accent-soft p-5">
         <div className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
           Experiment
         </div>
@@ -601,7 +601,7 @@ export function ExperimentBuilder({
         </details>
       </section>
 
-      <section className="rounded-2xl border border-line bg-panel p-5">
+      <section className="min-w-0 rounded-2xl border border-line bg-panel p-5">
         <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
           Result
         </div>
