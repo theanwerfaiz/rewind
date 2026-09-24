@@ -8,8 +8,8 @@ import type {
   EventChange,
   EventChangeKind,
 } from "@/lib/execution-diff";
-import type { RewindEvent } from "@/lib/mock-events";
 import { ComparePicker } from "@/components/executions/ComparePicker";
+import { SideBySideDiff } from "@/components/executions/SideBySideDiff";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { IdChip } from "@/components/ui/IdChip";
 import { shortId } from "@/lib/format";
@@ -138,59 +138,6 @@ function SideCard({
         {side.executionId}
       </div>
     </Link>
-  );
-}
-
-function EventList({
-  title,
-  events,
-  tone,
-}: {
-  title: string;
-  events: RewindEvent[];
-  tone: "added" | "removed";
-}) {
-  if (events.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="rounded-2xl border border-line bg-panel p-5">
-      <h2 className="text-sm font-medium text-ink">
-        {title} <span className="text-faint">({events.length})</span>
-      </h2>
-
-      <ul className="mt-3 space-y-1.5">
-        {events.map((event) => (
-          <li key={event.id}>
-            <Link
-              href={`/events/${event.id}`}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-panel"
-            >
-              <span
-                className={`font-mono ${
-                  tone === "added" ? "text-success" : "text-failure"
-                }`}
-              >
-                {tone === "added" ? "+" : "−"}
-              </span>
-
-              <span className="truncate text-ink">{event.title}</span>
-
-              <span className="shrink-0 text-xs text-faint">
-                {event.type}
-              </span>
-
-              {event.status === "error" && (
-                <span className="shrink-0 rounded bg-failure-soft px-1.5 text-xs text-failure">
-                  error
-                </span>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -398,20 +345,12 @@ export default async function CompareExecutionsPage({
           </section>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <EventList
-            title="Removed events"
-            events={diff.removed}
-            tone="removed"
-          />
-
-          <EventList title="Added events" events={diff.added} tone="added" />
-        </div>
+        <SideBySideDiff rows={diff.rows} />
 
         {diff.changed.length > 0 && (
           <section className="mt-6 rounded-2xl border border-line bg-panel p-5">
             <h2 className="text-sm font-medium text-ink">
-              Changed events{" "}
+              Field changes{" "}
               <span className="text-faint">({diff.changed.length})</span>
             </h2>
 

@@ -461,4 +461,59 @@ describe("diffExecutions", () => {
     expect(addedLines).toHaveLength(6);
     expect(addedLines[5]).toBe("Added event: +3 more");
   });
+
+  it("merges both trees into aligned rows for a side-by-side view", () => {
+    const diff = diffExecutions(
+      snapshot("orig", failingCheckout),
+      snapshot("fix", fixedCheckout),
+    );
+
+    expect(
+      diff.rows.map((row) => [
+        row.state,
+        row.depth,
+        (row.original ?? row.candidate)!.event.title,
+      ]),
+    ).toEqual([
+      ["changed", 0, "POST /api/orders/1/checkout"],
+      ["same", 1, "DB: load cart"],
+      ["changed", 1, "POST /api/payments"],
+      ["removed", 2, "Payment timeout after 5000ms"],
+      ["removed", 1, "DB: rollback order"],
+      ["added", 1, "DB: commit order"],
+    ]);
+
+    const payment = diff.rows[2];
+
+    expect(payment.original?.event.id).toBe("orig_pay");
+    expect(payment.candidate?.event.id).toBe("fix_pay");
+    expect(payment.kinds).toEqual(
+      expect.arrayContaining(["status", "http_status"]),
+    );
+  });
+
+  it("places an added event before the next event it preceded", () => {
+    const diff = diffExecutions(
+      snapshot("a", [
+        { id: "root", title: "POST /api/run" },
+        { id: "one", title: "step one", parent: "root", at: 10 },
+        { id: "three", title: "step three", parent: "root", at: 30 },
+      ]),
+      snapshot("b", [
+        { id: "root", title: "POST /api/run" },
+        { id: "one", title: "step one", parent: "root", at: 10 },
+        { id: "two", title: "step two", parent: "root", at: 20 },
+        { id: "three", title: "step three", parent: "root", at: 30 },
+      ]),
+    );
+
+    expect(
+      diff.rows.map((row) => `${row.state}:${(row.original ?? row.candidate)!.event.title}`),
+    ).toEqual([
+      "same:POST /api/run",
+      "same:step one",
+      "added:step two",
+      "same:step three",
+    ]);
+  });
 });

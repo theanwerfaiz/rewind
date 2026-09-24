@@ -86,6 +86,8 @@ export type ExecutionDiff = {
     verdict: TimingVerdict;
   };
   summary: string[];
+  /** Both trees merged row by row, for a side-by-side view. */
+  rows: AlignedRow[];
   /**
    * The original execution's invariants evaluated on both sides. Set by
    * compareExecutions, which has access to stored invariants.
@@ -113,6 +115,22 @@ type AlignedNode = {
   key: string;
   event: RewindEvent;
   offsetMs: number;
+  depth: number;
+};
+
+export type AlignedRowSide = {
+  event: RewindEvent;
+  offsetMs: number;
+};
+
+export type AlignedRow = {
+  key: string;
+  depth: number;
+  state: "same" | "changed" | "added" | "removed";
+  original: AlignedRowSide | null;
+  candidate: AlignedRowSide | null;
+  /** Set when state is "changed". */
+  kinds: EventChangeKind[];
 };
 
 /** Timing differences below both thresholds are treated as noise. */
@@ -207,6 +225,7 @@ function alignNodes(snapshot: ExecutionSnapshot): AlignedNode[] {
       key,
       event: node.event,
       offsetMs: Math.max(Date.parse(node.event.timestamp) - startedAt, 0),
+      depth: node.depth,
     };
   });
 }
@@ -314,6 +333,91 @@ function listItems(prefix: string, events: RewindEvent[]) {
 
 function formatMs(ms: number) {
   return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
+}
+
+function side(node: AlignedNode): AlignedRowSide {
+  return {
+    event: node.event,
+    offsetMs: node.offsetMs,
+  };
+}
+
+/**
+ * Merges both depth-first node lists into one: matched events share a row,
+ * and an added event is placed just before the next matched event that
+ * follows it in the candidate, so each side keeps its own order.
+ */
+function mergeRows(
+  originalNodes: AlignedNode[],
+  candidateNodes: AlignedNode[],
+  changedByKey: Map<string, EventChange>,
+): AlignedRow[] {
+  const originalKeys = new Set(originalNodes.map((node) => node.key));
+
+  const candidateIndex = new Map(
+    candidateNodes.map((node, index) => [node.key, index]),
+  );
+
+  const rows: AlignedRow[] = [];
+
+  const emitted = new Set<string>();
+
+  let cursor = 0;
+
+  function emitAddedUntil(end: number) {
+    for (; cursor < end; cursor += 1) {
+      const node = candidateNodes[cursor];
+
+      if (!originalKeys.has(node.key) && !emitted.has(node.key)) {
+        emitted.add(node.key);
+        rows.push({
+          key: node.key,
+          depth: node.depth,
+          state: "added",
+          original: null,
+          candidate: side(node),
+          kinds: [],
+        });
+      }
+    }
+  }
+
+  for (const node of originalNodes) {
+    const index = candidateIndex.get(node.key);
+
+    if (index === undefined) {
+      rows.push({
+        key: node.key,
+        depth: node.depth,
+        state: "removed",
+        original: side(node),
+        candidate: null,
+        kinds: [],
+      });
+
+      continue;
+    }
+
+    if (index >= cursor) {
+      emitAddedUntil(index);
+      cursor = index + 1;
+    }
+
+    const change = changedByKey.get(node.key);
+
+    rows.push({
+      key: node.key,
+      depth: node.depth,
+      state: change ? "changed" : "same",
+      original: side(node),
+      candidate: side(candidateNodes[index]),
+      kinds: change?.kinds ?? [],
+    });
+  }
+
+  emitAddedUntil(candidateNodes.length);
+
+  return rows;
 }
 
 export function diffExecutions(
@@ -507,5 +611,10 @@ export function diffExecutions(
     firstDivergence: divergences[0] ?? null,
     timing,
     summary,
+    rows: mergeRows(
+      originalNodes,
+      candidateNodes,
+      new Map(changed.map(({ change }) => [change.key, change])),
+    ),
   };
 }
