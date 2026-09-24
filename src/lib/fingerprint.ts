@@ -74,13 +74,13 @@ function isIdSegment(segment: string) {
  * with their message normalised.
  */
 export function normalizeEndpoint(title: string) {
-  const match = title.match(/^([A-Z]+)\s+(\/\S*)$/);
+  const match = title.match(/^([A-Z]+)\s+((?:https?:\/\/[^/\s]+)?)(\/\S*)$/);
 
   if (!match) {
     return normalizeMessage(title);
   }
 
-  const [, method, target] = match;
+  const [, method, origin, target] = match;
 
   const path = target
     .split(/[?#]/)[0]
@@ -88,7 +88,7 @@ export function normalizeEndpoint(title: string) {
     .map((segment) => (isIdSegment(segment) ? ":id" : segment))
     .join("/");
 
-  return `${method} ${path}`;
+  return `${method} ${origin.toLowerCase()}${path}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -104,7 +104,7 @@ function getOriginMessage(event: RewindEvent) {
 
   // An HTTP event that failed by status alone is described by its endpoint;
   // the status itself is a separate part of the signature.
-  if (event.type === "http.request") {
+  if (event.type === "http.request" || event.type === "http.dependency") {
     return normalizeEndpoint(event.title);
   }
 
@@ -112,7 +112,10 @@ function getOriginMessage(event: RewindEvent) {
 }
 
 function getHttpStatus(event: RewindEvent) {
-  if (event.type !== "http.request" || !isRecord(event.metadata)) {
+  if (
+    (event.type !== "http.request" && event.type !== "http.dependency") ||
+    !isRecord(event.metadata)
+  ) {
     return null;
   }
 

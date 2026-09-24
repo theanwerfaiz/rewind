@@ -13,6 +13,7 @@ type EventsExplorerProps = {
 const EVENT_TYPES: EventType[] = [
   "webhook.received",
   "http.request",
+  "http.dependency",
   "error",
   "database.query",
   "agent.action",

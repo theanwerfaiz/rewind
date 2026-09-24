@@ -1,6 +1,7 @@
 export type EventType =
   | "webhook.received"
   | "http.request"
+  | "http.dependency"
   | "error"
   | "database.query"
   | "agent.action"

@@ -50,6 +50,10 @@ describe("normalizeEndpoint", () => {
     ["GET /api/v2/users", "GET /api/v2/users"],
     ["GET /", "GET /"],
     ["Webhook received", "webhook received"],
+    [
+      "POST https://API.Stripe.test/v1/customers/cus_9a8b7c/charges",
+      "POST https://api.stripe.test/v1/customers/:id/charges",
+    ],
   ])("normalises %j", (input, expected) => {
     expect(normalizeEndpoint(input)).toBe(expected);
   });

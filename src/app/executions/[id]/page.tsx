@@ -15,6 +15,9 @@ function getEventIcon(type: string) {
     case "http.request":
       return "→";
 
+    case "http.dependency":
+      return "⇄";
+
     case "error":
       return "!";
 

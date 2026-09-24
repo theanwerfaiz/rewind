@@ -13,6 +13,9 @@ function getEventIcon(type: RewindEvent["type"]) {
     case "http.request":
       return "→";
 
+    case "http.dependency":
+      return "⇄";
+
     case "error":
       return "!";
 
