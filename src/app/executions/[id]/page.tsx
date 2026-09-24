@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { InvestigationPanel } from "@/components/executions/InvestigationPanel";
 import {
   InvariantPanel,
   type InvariantSuggestion,
@@ -10,6 +11,7 @@ import type { GraphNode } from "@/lib/event-graph";
 import { parseDurationMs } from "@/lib/events";
 import { getExecutionGraphById } from "@/lib/executions";
 import { getInvariantsForExecution } from "@/lib/invariant-store";
+import { buildInvestigation } from "@/lib/investigation";
 import {
   describeInvariant,
   evaluateInvariants,
@@ -115,6 +117,11 @@ export default async function ExecutionPage({
   const replay = getReplayByResultExecutionId(execution.id);
 
   const invariants = getInvariantsForExecution(execution.id);
+
+  // Replays and experiments are investigated through their original.
+  const investigation = execution.isReplay
+    ? null
+    : buildInvestigation(execution.id);
 
   const invariantResults = evaluateInvariants(invariants, {
     status: execution.status,
@@ -359,6 +366,8 @@ export default async function ExecutionPage({
             </ol>
           </section>
         )}
+
+        {investigation && <InvestigationPanel investigation={investigation} />}
 
         <InvariantPanel
           executionId={execution.id}
