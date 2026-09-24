@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 
 import { extractCorrelationIds } from "@/lib/correlation";
+import {
+  DependencyReplayer,
+  type ReplayPlan,
+} from "@/lib/dependency-replay";
 import type { RewindHttpMetadata } from "@/lib/event-metadata";
 import {
   createEventId,
@@ -8,7 +12,7 @@ import {
   getExecutionContext,
   runInExecution,
 } from "@/lib/execution-context";
-import { rewind } from "@/lib/rewind";
+import { getRewindOrigin, rewind } from "@/lib/rewind";
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
 
@@ -23,7 +27,7 @@ const EXECUTION_ID_PATTERN = new RegExp(`^exe_${UUID_SUFFIX}$`);
  * as, so the experiment can be compared with the original. Honoured only
  * for well-formed replay requests.
  */
-function getReplayExecutionId(headers: Headers) {
+function getReplayIdentity(headers: Headers) {
   const replayId = headers.get("x-rewind-replay-id");
 
   const executionId = headers.get("x-rewind-execution-id");
@@ -34,10 +38,41 @@ function getReplayExecutionId(headers: Headers) {
     REPLAY_ID_PATTERN.test(replayId) &&
     EXECUTION_ID_PATTERN.test(executionId)
   ) {
-    return executionId;
+    return {
+      replayId,
+      executionId,
+    };
   }
 
   return undefined;
+}
+
+/**
+ * Loads how dependency calls should behave during a replay. If the plan
+ * cannot be loaded, every dependency call is blocked: a replay must never
+ * fall back to live side effects by accident.
+ */
+async function loadReplayer(replayId: string) {
+  try {
+    const response = await fetch(
+      `${getRewindOrigin()}/api/replays/${replayId}/plan`,
+    );
+
+    if (response.ok) {
+      const { plan } = (await response.json()) as { plan: ReplayPlan };
+
+      return new DependencyReplayer(plan);
+    }
+  } catch (error) {
+    console.error("Rewind replay plan unavailable:", error);
+  }
+
+  return new DependencyReplayer({
+    replayId,
+    mode: "blocked",
+    fixtures: [],
+    dependencyMutations: [],
+  });
 }
 
 type HttpEventIdentity = {
@@ -285,15 +320,23 @@ export function withRewindCapture(handler: RouteHandler): RouteHandler {
     // otherwise it is the root of a new execution.
     const parent = getExecutionContext();
 
+    const replayIdentity = parent
+      ? undefined
+      : getReplayIdentity(request.headers);
+
     const identity: HttpEventIdentity = {
       eventId: createEventId(),
       executionId:
         parent?.executionId ??
-        getReplayExecutionId(request.headers) ??
+        replayIdentity?.executionId ??
         createExecutionId(),
       parentEventId: parent?.eventId ?? null,
       startedAt: new Date().toISOString(),
     };
+
+    const replay =
+      parent?.replay ??
+      (replayIdentity ? await loadReplayer(replayIdentity.replayId) : undefined);
 
     const payload = await readRequestPayload(request);
 
@@ -304,6 +347,7 @@ export function withRewindCapture(handler: RouteHandler): RouteHandler {
         {
           executionId: identity.executionId,
           eventId: identity.eventId,
+          replay,
         },
         () => handler(request),
       );

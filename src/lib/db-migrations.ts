@@ -151,6 +151,7 @@ export function migrateDatabase(db: Database.Database) {
         "mutations",
         "source_execution_id",
         "result_execution_id",
+        "dependency_mode",
       ]) {
         if (!hasColumn(db, "replays", column)) {
           db.exec(`ALTER TABLE replays ADD COLUMN ${column} TEXT`);
@@ -165,5 +166,17 @@ export function migrateDatabase(db: Database.Database) {
           ON replays(result_execution_id);
       `);
     }
+
+    // How dependency calls behave during a replay. Written before the
+    // replayed request is sent and read by the target application.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS replay_plans (
+        replay_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL,
+        fixtures TEXT NOT NULL,
+        dependency_mutations TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
   }).immediate();
 }

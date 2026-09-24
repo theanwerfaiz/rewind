@@ -246,7 +246,22 @@ describe("migrateDatabase", () => {
       mutations: null,
       source_execution_id: null,
       result_execution_id: null,
+      dependency_mode: null,
     });
+
+    const planColumns = (
+      database.prepare(`PRAGMA table_info(replay_plans)`).all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+
+    expect(planColumns).toEqual([
+      "replay_id",
+      "mode",
+      "fixtures",
+      "dependency_mutations",
+      "created_at",
+    ]);
   });
 
   it("creates correlation indexes", () => {

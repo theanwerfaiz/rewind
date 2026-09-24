@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type Target = "payload" | "header" | "query";
+type Target = "payload" | "header" | "query" | "dependency";
+
+type DependencyMode = "recorded" | "blocked" | "live";
 
 type Op = "set" | "remove";
 
@@ -52,6 +54,26 @@ function parsePayloadValue(value: string) {
 }
 
 function toMutation(row: Row) {
+  if (row.target === "dependency") {
+    if (row.op === "remove") {
+      return {
+        target: row.target,
+        op: row.op,
+        match: row.name.trim(),
+      };
+    }
+
+    // "500" sets the status; a JSON object sets status, body and delayMs.
+    const value = parsePayloadValue(row.value);
+
+    return {
+      target: row.target,
+      op: row.op,
+      match: row.name.trim(),
+      override: typeof value === "number" ? { status: value } : value,
+    };
+  }
+
   if (row.target === "payload") {
     return row.op === "set"
       ? {
@@ -84,10 +106,20 @@ function toMutation(row: Row) {
 const inputClass =
   "h-9 min-w-0 rounded-lg border border-white/10 bg-black/30 px-2.5 font-mono text-xs text-slate-200 outline-none transition placeholder:text-slate-700 focus:border-white/25";
 
-export function ExperimentBuilder({ eventId }: { eventId: string }) {
+export function ExperimentBuilder({
+  eventId,
+  dependencies,
+}: {
+  eventId: string;
+  /** Dependency calls recorded in the original execution. */
+  dependencies: string[];
+}) {
   const router = useRouter();
 
   const [label, setLabel] = useState("");
+
+  const [dependencyMode, setDependencyMode] =
+    useState<DependencyMode>("recorded");
 
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
 
@@ -122,6 +154,7 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
           eventId,
           label: label.trim() || undefined,
           mutations,
+          dependencyMode,
         }),
       });
 
@@ -189,6 +222,7 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
                   <option value="payload">payload</option>
                   <option value="header">header</option>
                   <option value="query">query</option>
+                  <option value="dependency">dependency</option>
                 </select>
 
                 <select
@@ -201,8 +235,12 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
                   }
                   className={`${inputClass} flex-1`}
                 >
-                  <option value="set">set</option>
-                  <option value="remove">remove</option>
+                  <option value="set">
+                    {row.target === "dependency" ? "respond" : "set"}
+                  </option>
+                  <option value="remove">
+                    {row.target === "dependency" ? "unavailable" : "remove"}
+                  </option>
                 </select>
 
                 <button
@@ -222,19 +260,43 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
               </div>
 
               <div className="flex items-center gap-2">
-                <input
-                  aria-label={row.target === "payload" ? "Path" : "Name"}
-                  value={row.name}
-                  onChange={(event) =>
-                    updateRow(row.key, {
-                      name: event.target.value,
-                    })
-                  }
-                  placeholder={
-                    row.target === "payload" ? "items.0.price" : "name"
-                  }
-                  className={`${inputClass} flex-1`}
-                />
+                {row.target === "dependency" && dependencies.length > 0 ? (
+                  <select
+                    aria-label="Dependency"
+                    value={row.name}
+                    onChange={(event) =>
+                      updateRow(row.key, {
+                        name: event.target.value,
+                      })
+                    }
+                    className={`${inputClass} min-w-0 flex-1`}
+                  >
+                    <option value="">Choose a dependency…</option>
+                    {dependencies.map((dependency) => (
+                      <option key={dependency} value={dependency}>
+                        {dependency}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    aria-label={row.target === "payload" ? "Path" : "Name"}
+                    value={row.name}
+                    onChange={(event) =>
+                      updateRow(row.key, {
+                        name: event.target.value,
+                      })
+                    }
+                    placeholder={
+                      row.target === "payload"
+                        ? "items.0.price"
+                        : row.target === "dependency"
+                          ? "POST https://api.example.com/v1/charges"
+                          : "name"
+                    }
+                    className={`${inputClass} flex-1`}
+                  />
+                )}
 
                 {row.op === "set" && (
                   <>
@@ -248,7 +310,13 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
                           value: event.target.value,
                         })
                       }
-                      placeholder={row.target === "payload" ? "0" : "value"}
+                      placeholder={
+                        row.target === "payload"
+                          ? "0"
+                          : row.target === "dependency"
+                            ? '500 or {"delayMs":6000}'
+                            : "value"
+                      }
                       className={`${inputClass} flex-1`}
                     />
                   </>
@@ -257,6 +325,29 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
             </div>
           ))}
         </div>
+
+        <label className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          Dependencies
+          <select
+            aria-label="Dependency mode"
+            value={dependencyMode}
+            onChange={(event) =>
+              setDependencyMode(event.target.value as DependencyMode)
+            }
+            className={inputClass}
+          >
+            <option value="recorded">recorded (safe)</option>
+            <option value="blocked">blocked</option>
+            <option value="live">live</option>
+          </select>
+        </label>
+
+        {dependencyMode === "live" && (
+          <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">
+            Live mode sends dependency calls to the real services. Payments,
+            emails and other side effects will happen again.
+          </p>
+        )}
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <button
@@ -278,8 +369,8 @@ export function ExperimentBuilder({ eventId }: { eventId: string }) {
         </div>
 
         <p className="mt-3 text-[11px] text-slate-600">
-          Payload values are parsed as JSON (<code>0</code>, <code>true</code>
-          , <code>{"{}"}</code>); anything else is sent as text. With no
+          Payload values are parsed as JSON (<code>0</code>, <code>true</code>,{" "}
+          <code>{"{}"}</code>); anything else is sent as text. With no
           mutations, this is a plain replay.
         </p>
       </section>

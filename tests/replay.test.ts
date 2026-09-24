@@ -8,6 +8,8 @@ import { POST } from "@/app/api/replay/route";
 
 import { getReplayById } from "@/lib/replays";
 
+import { GET as getReplayPlan } from "@/app/api/replays/[id]/plan/route";
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -756,5 +758,168 @@ describe("POST /api/replay experiments", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe("POST /api/replay dependency plans", () => {
+  function mockTarget() {
+    return vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("ok", {
+        status: 200,
+      }),
+    );
+  }
+
+  async function fetchPlan(replayId: string) {
+    const response = await getReplayPlan(
+      new NextRequest(`http://localhost:3000/api/replays/${replayId}/plan`),
+      {
+        params: Promise.resolve({
+          id: replayId,
+        }),
+      },
+    );
+
+    return {
+      status: response.status,
+      data: await response.json(),
+    };
+  }
+
+  it("serves the original execution's dependency responses by default", async () => {
+    const eventId = createHttpEvent();
+
+    const executionId = `exe_plan_${Date.now()}`;
+
+    db.prepare(`UPDATE events SET execution_id = ? WHERE id = ?`).run(
+      executionId,
+      eventId,
+    );
+
+    const dependencyId = `evt_plan_dep_${Date.now()}`;
+
+    db.prepare(
+      `
+      INSERT INTO events (
+        id, timestamp, type, title, status, execution_id, parent_event_id,
+        metadata, created_at
+      )
+      VALUES (?, ?, 'http.dependency', ?, 'success', ?, ?, ?, ?)
+      `,
+    ).run(
+      dependencyId,
+      new Date().toISOString(),
+      "POST https://api.stripe.test/v1/charges",
+      executionId,
+      eventId,
+      JSON.stringify({
+        response: {
+          status: 201,
+          statusText: "Created",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: {
+            id: "ch_recorded",
+          },
+        },
+      }),
+      new Date().toISOString(),
+    );
+
+    mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId,
+        mutations: [
+          {
+            target: "dependency",
+            op: "set",
+            match: "POST https://api.stripe.test/v1/charges",
+            override: {
+              delayMs: 6000,
+            },
+          },
+        ],
+      }),
+    );
+
+    const { replay } = await response.json();
+
+    expect(replay.dependencyMode).toBe("recorded");
+    expect(getReplayById(replay.id)?.dependencyMode).toBe("recorded");
+
+    const { status, data } = await fetchPlan(replay.id);
+
+    expect(status).toBe(200);
+
+    expect(data.plan).toEqual({
+      replayId: replay.id,
+      mode: "recorded",
+      fixtures: [
+        {
+          key: "POST https://api.stripe.test/v1/charges",
+          title: "POST https://api.stripe.test/v1/charges",
+          status: 201,
+          statusText: "Created",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: {
+            id: "ch_recorded",
+          },
+          truncated: false,
+        },
+      ],
+      dependencyMutations: [
+        {
+          target: "dependency",
+          op: "set",
+          match: "POST https://api.stripe.test/v1/charges",
+          override: {
+            delayMs: 6000,
+          },
+        },
+      ],
+    });
+
+    db.prepare(`DELETE FROM events WHERE id = ?`).run(dependencyId);
+  });
+
+  it("stores an explicit live mode", async () => {
+    mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId: createHttpEvent(),
+        dependencyMode: "live",
+      }),
+    );
+
+    const { replay } = await response.json();
+
+    const { data } = await fetchPlan(replay.id);
+
+    expect(data.plan.mode).toBe("live");
+    expect(data.plan.fixtures).toEqual([]);
+  });
+
+  it("rejects an unknown dependency mode", async () => {
+    const fetchMock = mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId: createHttpEvent(),
+        dependencyMode: "yolo",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for an unknown plan", async () => {
+    expect((await fetchPlan("replay_unknown")).status).toBe(404);
   });
 });

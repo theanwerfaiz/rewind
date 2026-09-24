@@ -1,3 +1,4 @@
+import { getExecutionContext } from "@/lib/execution-context";
 import type { EventStatus } from "@/lib/mock-events";
 import {
   redactHeaders,
@@ -149,6 +150,10 @@ export function dependencyTitle(method: string, url: URL) {
  *
  * Recording never changes what the caller receives, and a recording
  * failure never breaks the call.
+ *
+ * During a Rewind replay the call follows the replay plan instead: it is
+ * answered from the original execution's recording, overridden by an
+ * experiment, blocked, or (only when the replay opts in) sent live.
  */
 export async function rewindFetch(
   input: RequestInfo | URL,
@@ -166,13 +171,29 @@ export async function rewindFetch(
 
   const requestBody = await recordBody(request);
 
+  const title = dependencyTitle(method, url);
+
+  const decision = getExecutionContext()?.replay?.decide(title) ?? {
+    kind: "live" as const,
+  };
+
   let response: Response | undefined;
   let failure: unknown;
 
-  try {
-    response = await fetch(request);
-  } catch (error) {
-    failure = error;
+  if (decision.kind === "respond") {
+    if (decision.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, decision.delayMs));
+    }
+
+    response = decision.response;
+  } else if (decision.kind === "fail") {
+    failure = decision.error;
+  } else {
+    try {
+      response = await fetch(request);
+    } catch (error) {
+      failure = error;
+    }
   }
 
   const durationMs = Math.round(performance.now() - startTime);
@@ -185,7 +206,7 @@ export async function rewindFetch(
   try {
     await rewind.capture({
       type: "http.dependency",
-      title: dependencyTitle(method, url),
+      title,
       status,
       timestamp,
       duration: `${durationMs}ms`,
@@ -194,7 +215,7 @@ export async function rewindFetch(
         environment: process.env.NODE_ENV ?? "development",
         dependency: {
           kind: "http",
-          mode: "live",
+          mode: decision.kind === "live" ? "live" : decision.mode,
           method,
           url: redactUrl(url),
           host: url.host,

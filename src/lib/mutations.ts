@@ -3,7 +3,14 @@
  *
  * Mutations are explicit data, stored with every experiment, and applied to
  * a copy of the captured request: the original is never modified.
+ * Dependency mutations are not applied to the request; they travel to the
+ * target application in the replay plan.
  */
+
+import {
+  MAX_DEPENDENCY_DELAY_MS,
+  type DependencyMutation,
+} from "./dependency-replay";
 
 export type Mutation =
   | {
@@ -27,7 +34,8 @@ export type Mutation =
       target: "header" | "query";
       op: "remove";
       name: string;
-    };
+    }
+  | DependencyMutation;
 
 export type ReplayRequest = {
   url: URL;
@@ -206,8 +214,79 @@ export function parseMutations(
       continue;
     }
 
+    if (target === "dependency") {
+      const match = raw.match;
+
+      if (typeof match !== "string" || match.trim() === "" || match.length > 2048) {
+        return {
+          error: `${label}: match must name a dependency, e.g. "POST https://api.example.com/v1/charges".`,
+        };
+      }
+
+      if (op === "remove") {
+        mutations.push({
+          target,
+          op,
+          match: match.trim(),
+        });
+
+        continue;
+      }
+
+      const override = isRecord(raw.override) ? raw.override : undefined;
+
+      if (!override) {
+        return {
+          error: `${label}: override must be an object with status, body, or delayMs.`,
+        };
+      }
+
+      const { status, delayMs } = override;
+
+      if (
+        status !== undefined &&
+        !(Number.isInteger(status) && (status as number) >= 200 && (status as number) <= 599)
+      ) {
+        return {
+          error: `${label}: status must be an HTTP status between 200 and 599.`,
+        };
+      }
+
+      if (
+        delayMs !== undefined &&
+        !(
+          Number.isInteger(delayMs) &&
+          (delayMs as number) >= 0 &&
+          (delayMs as number) <= MAX_DEPENDENCY_DELAY_MS
+        )
+      ) {
+        return {
+          error: `${label}: delayMs must be between 0 and ${MAX_DEPENDENCY_DELAY_MS}.`,
+        };
+      }
+
+      if (status === undefined && delayMs === undefined && !("body" in override)) {
+        return {
+          error: `${label}: override must set status, body, or delayMs.`,
+        };
+      }
+
+      mutations.push({
+        target,
+        op,
+        match: match.trim(),
+        override: {
+          ...(status !== undefined ? { status: status as number } : {}),
+          ...(delayMs !== undefined ? { delayMs: delayMs as number } : {}),
+          ...("body" in override ? { body: override.body } : {}),
+        },
+      });
+
+      continue;
+    }
+
     return {
-      error: `${label}: target must be "payload", "header", or "query".`,
+      error: `${label}: target must be "payload", "header", "query", or "dependency".`,
     };
   }
 
@@ -290,6 +369,10 @@ export function applyMutations(
   const url = new URL(request.url);
 
   for (const mutation of mutations) {
+    if (mutation.target === "dependency") {
+      continue;
+    }
+
     if (mutation.target === "payload") {
       const segments = parsePath(mutation.path)!;
 
@@ -333,6 +416,22 @@ export function applyMutations(
  * A short human-readable form, e.g. `payload.amount = 0`.
  */
 export function describeMutation(mutation: Mutation) {
+  if (mutation.target === "dependency") {
+    if (mutation.op === "remove") {
+      return `${mutation.match} unavailable`;
+    }
+
+    const parts = [
+      mutation.override.status !== undefined
+        ? `status ${mutation.override.status}`
+        : null,
+      "body" in mutation.override ? "custom body" : null,
+      mutation.override.delayMs ? `+${mutation.override.delayMs}ms` : null,
+    ].filter(Boolean);
+
+    return `${mutation.match} → ${parts.join(", ")}`;
+  }
+
   const subject =
     mutation.target === "payload"
       ? `payload.${mutation.path}`
@@ -343,4 +442,11 @@ export function describeMutation(mutation: Mutation) {
   }
 
   return `${subject} = ${JSON.stringify(mutation.value)}`;
+}
+
+export function getDependencyMutations(mutations: Mutation[]) {
+  return mutations.filter(
+    (mutation): mutation is DependencyMutation =>
+      mutation.target === "dependency",
+  );
 }

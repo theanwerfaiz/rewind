@@ -460,9 +460,12 @@ export function diffExecutions(
   ];
 
   for (const { change } of changed.slice(0, MAX_SUMMARY_ITEMS)) {
+    const subject =
+      change.candidate.type === "http.dependency" ? "dependency" : "status";
+
     if (change.httpStatus) {
       summary.push(
-        `Changed status: ${change.candidate.title} (${change.httpStatus.from ?? "—"} → ${change.httpStatus.to ?? "—"})`,
+        `Changed ${subject}: ${change.candidate.title} (${change.httpStatus.from ?? "—"} → ${change.httpStatus.to ?? "—"})`,
       );
     } else if (change.responseChanges.length > 0) {
       summary.push(

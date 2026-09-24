@@ -1,8 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import type { DependencyReplayer } from "./dependency-replay";
+
 export type ExecutionContext = {
   executionId: string;
   eventId: string;
+  /** Set while handling a Rewind replay: how dependency calls behave. */
+  replay?: DependencyReplayer;
 };
 
 const executionStorage = new AsyncLocalStorage<ExecutionContext>();

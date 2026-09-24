@@ -34,6 +34,11 @@ type CaptureResponse = {
 const DEFAULT_ENDPOINT =
   process.env.REWIND_CAPTURE_URL ?? "http://localhost:3000/api/events";
 
+/** Origin of the Rewind server that events are captured to. */
+export function getRewindOrigin() {
+  return new URL(DEFAULT_ENDPOINT).origin;
+}
+
 export async function capture(
   event: CaptureEventInput,
   options: CaptureOptions = {},

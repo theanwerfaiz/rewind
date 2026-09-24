@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import db from "@/lib/db";
+import {
+  buildFixtures,
+  DEFAULT_DEPENDENCY_MODE,
+  isDependencyMode,
+  type DependencyMode,
+  type ReplayPlan,
+} from "@/lib/dependency-replay";
+import { getEventsByExecutionId } from "@/lib/events";
 import { createExecutionId } from "@/lib/execution-context";
-import { applyMutations, parseMutations, type Mutation } from "@/lib/mutations";
+import {
+  applyMutations,
+  getDependencyMutations,
+  parseMutations,
+  type Mutation,
+} from "@/lib/mutations";
 
 export const runtime = "nodejs";
 
@@ -112,10 +125,32 @@ function createReplayId() {
   return `replay_${crypto.randomUUID()}`;
 }
 
+function persistReplayPlan(plan: ReplayPlan) {
+  db.prepare(
+    `
+    INSERT INTO replay_plans (
+      replay_id,
+      mode,
+      fixtures,
+      dependency_mutations,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?)
+    `,
+  ).run(
+    plan.replayId,
+    plan.mode,
+    JSON.stringify(plan.fixtures),
+    JSON.stringify(plan.dependencyMutations),
+    new Date().toISOString(),
+  );
+}
+
 function persistReplay({
   id,
   label,
   mutations,
+  dependencyMode,
   sourceExecutionId,
   resultExecutionId,
   eventId,
@@ -130,6 +165,7 @@ function persistReplay({
   id: string;
   label: string | null;
   mutations: Mutation[];
+  dependencyMode: DependencyMode;
   sourceExecutionId: string | null;
   resultExecutionId: string | null;
   eventId: string;
@@ -160,7 +196,8 @@ function persistReplay({
         label,
         mutations,
         source_execution_id,
-        result_execution_id
+        result_execution_id,
+        dependency_mode
       )
       VALUES (
         @id,
@@ -177,13 +214,15 @@ function persistReplay({
         @label,
         @mutations,
         @sourceExecutionId,
-        @resultExecutionId
+        @resultExecutionId,
+        @dependencyMode
       )
     `,
   ).run({
     id,
     label,
     mutations: JSON.stringify(mutations),
+    dependencyMode,
     sourceExecutionId,
     resultExecutionId,
     eventId,
@@ -275,6 +314,28 @@ export async function POST(request: NextRequest) {
       typeof body.label === "string" && body.label.trim()
         ? body.label.trim()
         : null;
+
+    if (
+      body.dependencyMode !== undefined &&
+      !isDependencyMode(body.dependencyMode)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'dependencyMode must be "recorded", "blocked", or "live".',
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // Safe by default: dependencies answer from the recording unless the
+    // experiment explicitly opts into live calls.
+    const dependencyMode: DependencyMode = isDependencyMode(
+      body.dependencyMode,
+    )
+      ? body.dependencyMode
+      : DEFAULT_DEPENDENCY_MODE;
 
     const event = db
       .prepare(
@@ -423,6 +484,15 @@ export async function POST(request: NextRequest) {
     // the experiment can be compared with the original execution.
     const resultExecutionId = createExecutionId();
 
+    persistReplayPlan({
+      replayId,
+      mode: dependencyMode,
+      fixtures: event.execution_id
+        ? buildFixtures(getEventsByExecutionId(event.execution_id))
+        : [],
+      dependencyMutations: getDependencyMutations(mutations),
+    });
+
     const replayHeaders: Record<string, string> = {
       ...mutated.headers,
 
@@ -510,6 +580,7 @@ export async function POST(request: NextRequest) {
       id: replayId,
       label,
       mutations,
+      dependencyMode,
       sourceExecutionId: event.execution_id,
       resultExecutionId: capturedExecution ? resultExecutionId : null,
       eventId: event.id,
@@ -531,6 +602,8 @@ export async function POST(request: NextRequest) {
         label,
 
         mutations,
+
+        dependencyMode,
 
         sourceExecutionId: event.execution_id,
 

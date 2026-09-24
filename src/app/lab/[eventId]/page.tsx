@@ -4,7 +4,7 @@ import { connection } from "next/server";
 
 import { ExperimentBuilder } from "@/components/lab/ExperimentBuilder";
 import type { RewindHttpMetadata } from "@/lib/event-metadata";
-import { getEventById } from "@/lib/events";
+import { getEventById, getEventsByExecutionId } from "@/lib/events";
 import { describeMutation } from "@/lib/mutations";
 import { getReplaysForEvent } from "@/lib/replays";
 
@@ -66,6 +66,16 @@ export default async function ReplayLabPage({
   const experiments = getReplaysForEvent(event.id);
 
   const originalStatus = metadata?.response?.status;
+
+  const dependencyEvents = event.executionId
+    ? getEventsByExecutionId(event.executionId).filter(
+        (candidate) => candidate.type === "http.dependency",
+      )
+    : [];
+
+  const dependencyTitles = [
+    ...new Set(dependencyEvents.map((dependency) => dependency.title)),
+  ];
 
   return (
     <main className="min-h-screen bg-[#070b14] text-white">
@@ -136,10 +146,52 @@ export default async function ReplayLabPage({
               <Block label="Payload" value={event.payload} />
 
               <Block label="Headers (redacted)" value={metadata?.headers} />
+
+              <div>
+                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-600">
+                  Recorded dependencies
+                </div>
+
+                {dependencyEvents.length === 0 ? (
+                  <p className="text-xs text-slate-600">
+                    None recorded. Use rewindFetch in the application to record
+                    outgoing calls.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {dependencyEvents.map((dependency) => {
+                      const response = (
+                        dependency.metadata as
+                          | { response?: { status?: number } }
+                          | undefined
+                      )?.response;
+
+                      return (
+                        <li
+                          key={dependency.id}
+                          className="flex items-center gap-2 font-mono text-[11px] text-slate-400"
+                        >
+                          <span
+                            className={`rounded px-1.5 ${statusClass(
+                              response?.status,
+                            )}`}
+                          >
+                            {response?.status ?? "ERR"}
+                          </span>
+                          <span className="truncate">{dependency.title}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
           </section>
 
-          <ExperimentBuilder eventId={event.id} />
+          <ExperimentBuilder
+            eventId={event.id}
+            dependencies={dependencyTitles}
+          />
         </div>
 
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d1320]">
@@ -198,6 +250,18 @@ export default async function ReplayLabPage({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-4 text-xs">
+                  {experiment.dependencyMode && (
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
+                        experiment.dependencyMode === "live"
+                          ? "bg-amber-500/10 text-amber-300"
+                          : "bg-white/[0.05] text-slate-500"
+                      }`}
+                    >
+                      deps {experiment.dependencyMode}
+                    </span>
+                  )}
+
                   <span className="font-mono text-slate-600">
                     {experiment.duration}
                   </span>
