@@ -2,15 +2,17 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const dataDirectory = path.join(process.cwd(), "data");
+// Same location as the app: REWIND_DB_PATH, or data/rewind.db.
+const databasePath =
+  process.env.REWIND_DB_PATH ?? path.join(process.cwd(), "data", "rewind.db");
+
+const dataDirectory = path.dirname(databasePath);
 
 if (!fs.existsSync(dataDirectory)) {
   fs.mkdirSync(dataDirectory, {
     recursive: true,
   });
 }
-
-const databasePath = path.join(dataDirectory, "rewind.db");
 
 const db = new Database(databasePath);
 
