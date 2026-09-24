@@ -4,6 +4,8 @@
 
 Open source · self-hosted · one SQLite file · nothing leaves your machine.
 
+![Rewind overview: executions in the last 24 hours, failures that need attention, and recent executions](docs/images/overview.png)
+
 ```text
 Capture  →  Understand  →  Reproduce  →  Fix  →  Prevent
  request     graph and      replay with     diff     verify in CI
@@ -78,6 +80,25 @@ The helpers live in `src/lib` (`rewind.ts`, `rewind-http.ts`, `rewind-fetch.ts`)
 | **Verifications** | Recorded failures replayed against a new build: fixed or not? |
 | **Settings** | Extra redaction rules, replay defaults, theme and density |
 
+<table>
+  <tr>
+    <td><img src="docs/images/execution.png" alt="An execution: the tree of events a request caused, with timing and an inspector for the selected event"></td>
+    <td><img src="docs/images/compare.png" alt="Compare: a failed checkout and its fixed replay side by side, showing what was added, removed and changed"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Every request as a tree of what it caused</sub></td>
+    <td align="center"><sub>A failure and its fix, side by side</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/replay-lab.png" alt="Replay Lab: the captured request, and an experiment with the payload open in a JSON editor"></td>
+    <td><img src="docs/images/command-palette.png" alt="Command palette: searching executions, failures and incidents"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Replay Lab: change one thing, run it again</sub></td>
+    <td align="center"><sub>⌘K: search anything, jump to any ID</sub></td>
+  </tr>
+</table>
+
 **Keyboard:** `⌘K` / `Ctrl+K` search and jump to any ID · `g` then a letter to switch page (`g e` executions, `g f` failures…) · `j`/`k` in the graph · `?` for all shortcuts.
 
 **Live:** new executions appear as they happen, and a new failure raises a toast.
@@ -114,6 +135,8 @@ All optional.
 | `REWIND_CAPTURE_URL` | `http://localhost:3000/api/events` | Where capture helpers send events |
 | `REWIND_URL` | `http://localhost:3000` | The Rewind server `npm run verify` talks to |
 
+`GET /api/health` reports the running version and whether the database is readable; the Docker image uses it as its health check.
+
 ---
 
 ## Security and privacy
@@ -131,7 +154,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 ## Development
 
 ```bash
-npm test             # 435 tests (Vitest) on a temporary database
+npm test             # Vitest, on a temporary database
 npm run build        # production build
 npm run lint
 ```
@@ -151,6 +174,7 @@ Built with Next.js 16, React 19, Tailwind CSS 4, SQLite (better-sqlite3), Radix 
 ## Learn more
 
 - **[Full reference](docs/REFERENCE.md):** every feature, endpoint, table and option in detail
+- **[Changelog](CHANGELOG.md):** what changed in each release
 - **[Handoff notes](docs/HANDOFF.md):** design decisions and known limitations
 
 ## License

@@ -11,7 +11,13 @@ import {
 import { maxBodyBytesFor } from "@/lib/request-body";
 
 /** Reachable without signing in, so people can sign in. */
-const PUBLIC_PATHS = new Set(["/login", "/api/auth/login", "/api/auth/logout"]);
+// /api/health reveals only the version, and container checks cannot sign in.
+const PUBLIC_PATHS = new Set([
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/health",
+]);
 
 /**
  * Runs before every page and API route:

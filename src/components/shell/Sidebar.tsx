@@ -51,7 +51,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ version }: { version: string }) {
   const pathname = usePathname();
 
   // The sign-in page stands alone.
@@ -77,7 +77,18 @@ export function Sidebar() {
           Recording locally
         </div>
 
-        <div className="mt-1 text-xs text-faint">Data stays in your SQLite file</div>
+        <div className="mt-1 flex items-center justify-between text-xs text-faint">
+          <span>Data stays on this machine</span>
+          <a
+            href="https://github.com/theanwerfaiz/rewind/blob/main/CHANGELOG.md"
+            target="_blank"
+            rel="noreferrer"
+            title="What's new in this version"
+            className="font-mono hover:text-ink"
+          >
+            v{version}
+          </a>
+        </div>
       </div>
     </aside>
   );

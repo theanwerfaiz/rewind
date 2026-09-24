@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/shell/Sidebar";
 import { TopBar } from "@/components/shell/TopBar";
 
 import { PREFERENCES_SCRIPT } from "@/lib/preferences";
+import { REWIND_VERSION } from "@/lib/version";
 
 import "./globals.css";
 
@@ -48,7 +49,7 @@ export default function RootLayout({
         </a>
 
         <div className="flex min-h-screen">
-          <Sidebar />
+          <Sidebar version={REWIND_VERSION} />
 
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar>
