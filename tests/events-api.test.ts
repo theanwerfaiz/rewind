@@ -499,6 +499,105 @@ describe("failure fingerprints API", () => {
     ).toContain(first.fingerprintId);
   });
 
+  it("keeps replay-produced failures out of the failure history", async () => {
+    const real = await captureCheckoutFailure("4004", 5000);
+    const replayed = await captureCheckoutFailure("5005", 5000);
+
+    expect(replayed.fingerprintId).toBe(real.fingerprintId);
+
+    db.prepare(
+      `
+      INSERT INTO replays (
+        id, event_id, timestamp, method, url, status, duration,
+        created_at, result_execution_id
+      )
+      VALUES (?, ?, ?, 'POST', 'http://localhost:3000/x', 500, '1ms', ?, ?)
+      `,
+    ).run(
+      `replay_fp_${uniqueSuffix()}`,
+      (
+        db
+          .prepare(`SELECT root_event_id FROM executions WHERE id = ?`)
+          .get(real.executionId) as { root_event_id: string }
+      ).root_event_id,
+      new Date().toISOString(),
+      new Date().toISOString(),
+      replayed.executionId,
+    );
+
+    const { data } = await (async () => {
+      const response = await getFingerprint(
+        new NextRequest(
+          `http://localhost:3000/api/fingerprints/${real.fingerprintId}`,
+        ),
+        {
+          params: Promise.resolve({
+            id: real.fingerprintId!,
+          }),
+        },
+      );
+
+      return {
+        data: await response.json(),
+      };
+    })();
+
+    expect(data.fingerprint.representativeExecutionId).not.toBe(
+      replayed.executionId,
+    );
+    expect(data.fingerprint.latestExecutionId).not.toBe(replayed.executionId);
+
+    db.prepare(`DELETE FROM replays WHERE result_execution_id = ?`).run(
+      replayed.executionId,
+    );
+  });
+
+  it("recognises replays by their captured replay header", async () => {
+    const real = await captureCheckoutFailure("6006", 5000);
+    const orphan = await captureCheckoutFailure("7007", 5000);
+
+    const root = db
+      .prepare(`SELECT root_event_id FROM executions WHERE id = ?`)
+      .get(orphan.executionId) as { root_event_id: string };
+
+    db.prepare(`UPDATE events SET metadata = ? WHERE id = ?`).run(
+      JSON.stringify({
+        headers: {
+          "x-rewind-replay-id": "replay_11111111-2222-4333-8444-555555555555",
+        },
+      }),
+      root.root_event_id,
+    );
+
+    const response = await getFingerprint(
+      new NextRequest(
+        `http://localhost:3000/api/fingerprints/${real.fingerprintId}`,
+      ),
+      {
+        params: Promise.resolve({
+          id: real.fingerprintId!,
+        }),
+      },
+    );
+
+    const data = await response.json();
+
+    expect(data.fingerprint.latestExecutionId).not.toBe(orphan.executionId);
+
+    const execution = await getExecution(
+      new NextRequest(
+        `http://localhost:3000/api/executions/${orphan.executionId}`,
+      ),
+      {
+        params: Promise.resolve({
+          id: orphan.executionId,
+        }),
+      },
+    );
+
+    expect((await execution.json()).execution.isReplay).toBe(true);
+  });
+
   it("does not fingerprint successful executions", async () => {
     const executionId = `exe_fp_ok_${uniqueSuffix()}`;
 

@@ -28,6 +28,10 @@ export type RewindExecution = {
   fingerprintId: string | null;
   /** Set when the execution was imported from a Reproduction Capsule. */
   capsuleId: string | null;
+  /** The stored replay or experiment that produced this execution. */
+  replayId: string | null;
+  /** True for any execution produced by a Rewind replay. */
+  isReplay: boolean;
 };
 
 type ExecutionRow = {
@@ -45,12 +49,42 @@ type ExecutionRow = {
   root_type: EventType | null;
   fingerprint_id: string | null;
   capsule_id: string | null;
+  replay_id: string | null;
+  is_replay: number;
 };
+
+/**
+ * SQL condition that is true when the execution aliased as `alias` was
+ * produced by a Rewind replay: a stored replay points at it, or its root
+ * request carried Rewind's replay header (which also covers replays whose
+ * record was never stored, e.g. when the target crashed mid-replay).
+ */
+export function isReplayExecutionSql(alias: string) {
+  return `(
+    EXISTS (
+      SELECT 1 FROM replays WHERE replays.result_execution_id = ${alias}.id
+    )
+    OR EXISTS (
+      SELECT 1 FROM events AS replay_root
+      WHERE replay_root.id = ${alias}.root_event_id
+        AND json_valid(replay_root.metadata)
+        AND json_extract(
+          replay_root.metadata,
+          '$.headers."x-rewind-replay-id"'
+        ) IS NOT NULL
+    )
+  )`;
+}
 
 const EXECUTION_COLUMNS = `
   executions.*,
   root.title AS root_title,
-  root.type AS root_type
+  root.type AS root_type,
+  (
+    SELECT replays.id FROM replays
+    WHERE replays.result_execution_id = executions.id
+  ) AS replay_id,
+  ${isReplayExecutionSql("executions")} AS is_replay
 `;
 
 export type ExecutionEventInput = {
@@ -82,6 +116,8 @@ function mapExecution(row: ExecutionRow): RewindExecution {
 
     fingerprintId: row.fingerprint_id,
     capsuleId: row.capsule_id,
+    replayId: row.replay_id,
+    isReplay: row.is_replay === 1,
   };
 }
 

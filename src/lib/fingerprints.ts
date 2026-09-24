@@ -1,5 +1,5 @@
 import db from "@/lib/db";
-import { getExecutionGraphById } from "@/lib/executions";
+import { getExecutionGraphById, isReplayExecutionSql } from "@/lib/executions";
 import {
   computeFailureFingerprint,
   FINGERPRINT_VERSION,
@@ -158,6 +158,14 @@ export function ensureFingerprints() {
   return stale.length;
 }
 
+/**
+ * Executions produced by Replay Lab experiments or verification replays are
+ * fingerprinted (diffs compare fingerprints), but they are not real
+ * failures: they never count towards a fingerprint's history.
+ */
+const IS_REAL_EXECUTION = (alias: string) =>
+  `NOT ${isReplayExecutionSql(alias)}`;
+
 const FINGERPRINT_QUERY = `
   SELECT
     f.*,
@@ -165,20 +173,20 @@ const FINGERPRINT_QUERY = `
     MIN(e.started_at) AS first_seen_at,
     MAX(e.started_at) AS last_seen_at,
     (
-      SELECT id FROM executions
-      WHERE fingerprint_id = f.id
-      ORDER BY started_at ASC
+      SELECT id FROM executions AS r
+      WHERE r.fingerprint_id = f.id AND ${IS_REAL_EXECUTION("r")}
+      ORDER BY r.started_at ASC
       LIMIT 1
     ) AS representative_execution_id,
     (
-      SELECT id FROM executions
-      WHERE fingerprint_id = f.id
-      ORDER BY started_at DESC
+      SELECT id FROM executions AS l
+      WHERE l.fingerprint_id = f.id AND ${IS_REAL_EXECUTION("l")}
+      ORDER BY l.started_at DESC
       LIMIT 1
     ) AS latest_execution_id
   FROM failure_fingerprints AS f
   JOIN executions AS e
-    ON e.fingerprint_id = f.id
+    ON e.fingerprint_id = f.id AND ${IS_REAL_EXECUTION("e")}
 `;
 
 export function getFingerprints(limit = 100): FingerprintSummary[] {

@@ -24,8 +24,9 @@ export default async function ExecutionsPage() {
 
   const executions = getExecutions(200);
 
+  // Replays and experiments are not real failures.
   const failed = executions.filter(
-    (execution) => execution.status === "error",
+    (execution) => execution.status === "error" && !execution.isReplay,
   ).length;
 
   return (
@@ -112,8 +113,22 @@ export default async function ExecutionsPage() {
                 />
 
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-slate-200 group-hover:text-white">
-                    {execution.rootTitle ?? "Untitled execution"}
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm text-slate-200 group-hover:text-white">
+                      {execution.rootTitle ?? "Untitled execution"}
+                    </span>
+
+                    {execution.isReplay && (
+                      <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-300">
+                        replay
+                      </span>
+                    )}
+
+                    {execution.capsuleId && (
+                      <span className="shrink-0 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-violet-300">
+                        imported
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-0.5 truncate font-mono text-[11px] text-slate-600">
