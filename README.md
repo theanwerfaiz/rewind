@@ -103,6 +103,21 @@ Rewind currently provides:
 - Docker support
 - Persistent SQLite storage
 
+Since v0.2, Rewind works at the level of **executions** — a request and everything it caused:
+
+- Correlation IDs: request, trace, span, session and user IDs, including W3C `traceparent`
+- Executions: every request or webhook opens one; events captured while handling it join it
+- Execution graph with the failure origin, the path to it, and a timing waterfall
+- Failure fingerprints that group recurring failures
+- Dependency recording with `rewindFetch`, redacted by default
+- Replay Lab: experiments with explicit, stored mutations
+- Dependency replay from recordings, so replays never repeat real side effects
+- Execution diff: original vs replay, by behaviour
+- Invariants: what must be true when it works
+- Reproduction Capsules: portable, verifiable `.rewind.json` files
+- CI verification: `npm run verify` proves historical failures stay fixed
+- Evidence-based investigation with testable hypotheses
+
 ---
 
 ## Why Rewind?
@@ -361,6 +376,8 @@ Captured HTTP events can contain:
 - response body
 - request duration
 - request ID
+- correlation IDs (`x-request-id`, `x-trace-id`, `x-span-id`, `x-session-id`, `x-user-id`, W3C `traceparent`)
+- execution ID and parent event
 - environment
 - errors
 
@@ -930,27 +947,267 @@ The core product experience can be summarized as:
 
 ---
 
+# Executions and Reproduction
+
+Rewind v0.2 turns captured events into **executions** you can reproduce, experiment on, compare and verify.
+
+```text
+Real failure
+   ↓  capture (request + every event and dependency call it caused)
+Execution graph ── failure origin ── fingerprint
+   ↓  replay with recorded dependencies
+Experiment ── mutations ── execution diff ── invariants
+   ↓  export
+Reproduction Capsule (.rewind.json)
+   ↓  npm run verify
+Proof the historical failure stays fixed
+```
+
+---
+
+## Correlation IDs
+
+HTTP and webhook capture record these headers as first-class event fields:
+
+| Header         | Field       |
+| -------------- | ----------- |
+| `x-request-id` | `requestId` |
+| `x-trace-id`   | `traceId`   |
+| `x-span-id`    | `spanId`    |
+| `x-session-id` | `sessionId` |
+| `x-user-id`    | `userId`    |
+| `traceparent`  | `traceId` + `spanId` (W3C Trace Context) |
+
+A valid `traceparent` is split into its trace and span IDs; an invalid one is ignored. Explicit `x-trace-id` / `x-span-id` headers take precedence, and a `traceparent` span is never paired with a different trace.
+
+---
+
+## Executions and the Event Graph
+
+Every request handled by `withRewindCapture` (and every webhook) opens an **execution**. Events captured while handling it join the execution as children of the request:
+
+```ts
+import { rewind } from "@/lib/rewind";
+import { withRewindCapture } from "@/lib/rewind-http";
+
+export const POST = withRewindCapture(async (request) => {
+  // Automatically attached to this request's execution.
+  await rewind.capture({
+    type: "database.query",
+    title: "DB: load cart",
+    status: "success",
+  });
+
+  return Response.json({ ok: true });
+});
+```
+
+`/executions/:id` shows the execution graph: events nested under the event that caused them, in chronological order, with a timing waterfall. For a failed execution Rewind points at the **failure origin** — the earliest error with no failing descendants — and the path from the root to it, so a 500 that wraps a payment timeout points at the timeout.
+
+An execution's status is its root request's outcome: a failure the application handled (for example a dependency timeout it recovered from) stays visible in the graph but does not fail the execution.
+
+---
+
+## Recording Dependencies
+
+Use `rewindFetch` instead of `fetch` for outgoing calls. Each call is recorded as an `http.dependency` event inside the current execution:
+
+```ts
+import { rewindFetch } from "@/lib/rewind-fetch";
+
+const charge = await rewindFetch("https://api.stripe.com/v1/charges", {
+  method: "POST",
+  headers: { authorization: `Bearer ${process.env.STRIPE_KEY}` },
+  body: JSON.stringify({ amount: 4999 }),
+});
+```
+
+Credential headers, credentials in URLs, credential-like query parameters and JSON fields (`password`, `secret`, `token`, `apiKey`, card numbers…) are redacted before anything is stored. Bodies are recorded up to 64 KiB and streaming responses are never buffered. The caller always receives the untouched response, and a recording failure never breaks the call.
+
+---
+
+## Failure Fingerprints
+
+`/fingerprints` groups failed executions by *where and how* they failed: the endpoint (IDs in paths replaced by `:id`), the failure origin's type, its normalised message (IDs, numbers, quoted values and emails removed), its HTTP status, and the event path from the root. The same bug recurring with different order IDs or timings lands in one fingerprint with a count and first/last seen. Replays and experiments never count towards a fingerprint's history.
+
+---
+
+## Replay Lab
+
+`/lab/:eventId` branches a captured request into experiments. The original is immutable; each experiment is stored with its label, its mutations and the execution it produced.
+
+Mutations are explicit data:
+
+```json
+[
+  { "target": "payload", "op": "set", "path": "items.0.qty", "value": 3 },
+  { "target": "payload", "op": "remove", "path": "coupon" },
+  { "target": "header", "op": "set", "name": "x-feature-flag", "value": "off" },
+  { "target": "query", "op": "set", "name": "dryRun", "value": "1" },
+  {
+    "target": "dependency",
+    "op": "set",
+    "match": "POST https://api.stripe.com/v1/charges",
+    "override": { "status": 504, "delayMs": 6000 }
+  },
+  { "target": "dependency", "op": "remove", "match": "POST https://api.stripe.com/v1/charges" }
+]
+```
+
+Credential and transport headers cannot be mutated, so experiments never store secrets.
+
+### Dependency modes
+
+During a replay, calls made through `rewindFetch` follow a replay plan:
+
+| Mode       | Behaviour |
+| ---------- | --------- |
+| `recorded` | Default. Each call is answered with the response recorded in the original execution, in call order. Unrecorded calls are **blocked**, never sent live. |
+| `blocked`  | Every dependency call fails. |
+| `live`     | Calls go to the real services (explicit opt-in; side effects happen again). |
+
+`recorded` makes a replay deterministic and safe: replaying a failed checkout does not charge the card again.
+
+---
+
+## Execution Diff
+
+`/executions/compare?original=…&candidate=…` compares two executions by behaviour. Events are aligned by their position in the tree, so a replay's new IDs do not matter. The diff reports:
+
+- a verdict: **fixed**, **regressed**, **still failing** (same fingerprint), **different failure**, **behaviour changed** or **unchanged**
+- where behaviour first diverged
+- added, removed and changed events (status, HTTP status, request and response fields, timing)
+- failures removed and introduced
+- latency changes (differences under 5 ms or 10% are treated as noise)
+- invariant results on both sides
+
+---
+
+## Invariants
+
+Invariants state what must be true when an execution works. Add them on the execution page (one-click suggestions are drawn from the execution itself) or via the API:
+
+| Kind                  | Example |
+| --------------------- | ------- |
+| `http_status`         | HTTP status is 200 |
+| `max_duration_ms`     | Completes within 1000 ms |
+| `response_field`      | `response.order.status` is `"paid"` |
+| `event_exists`        | "DB: commit order" happens |
+| `event_absent`        | "DB: rollback order" never happens |
+| `max_event_count`     | "POST https://api.stripe.com/v1/charges" happens at most 1 time |
+| `no_unhandled_errors` | The request does not fail |
+
+Diffs show them for both sides, verification fails a "fix" that breaks one, capsules carry them, and generated tests assert the HTTP ones.
+
+---
+
+## Reproduction Capsules
+
+A capsule is a portable, versioned `.rewind.json` file holding one execution: its events and edges, replay instructions with recorded dependency fixtures, the expected outcome, its experiments and its invariants.
+
+- **Export:** `/executions/:id/capsule` or `GET /api/executions/:id/capsule`
+- **Import:** `/capsules` or `POST /api/capsules`
+
+Every capsule carries a SHA-256 digest over its canonical content; import rejects edited capsules, unknown versions and broken references, and never overwrites existing data. Export runs a secret scan (private keys, cloud and API keys, tokens, JWTs, card numbers) and is refused when it finds secrets unless explicitly forced; emails are reported as personal-data warnings.
+
+---
+
+## CI Verification
+
+Verification replays stored executions against a candidate build, with dependencies answered from their recordings, and judges each against what it originally did:
+
+- a historical **failure passes when it no longer reproduces** (and its invariants hold)
+- a **success passes unless it regressed**
+
+```bash
+# Verify capsules committed to the repository
+npm run verify -- capsules/*.rewind.json --code-version "$GITHUB_SHA"
+
+# Or verify every recorded failure fingerprint
+npm run verify
+```
+
+```text
+Rewind Regression Verification
+1 execution replayed against http://localhost:4000 (code version 4d5e6f)
+
+  PASS  fixed              POST /api/orders/91/checkout
+
+Fixed:            1
+Still failing:    0
+Behaviour changed: 0
+New failures:     0
+
+PASS — 1/1 verified
+```
+
+Exit codes: `0` all verified, `1` something did not verify, `2` verification could not run. Options: `--rewind <url>` (default `$REWIND_URL` or `http://localhost:3000`), `--target <url>` (localhost only), `--code-version <v>`, `--json`.
+
+Example GitHub Actions step, with Rewind and the candidate app running in the job:
+
+```yaml
+- name: Verify historical failures stay fixed
+  run: npm run verify -- capsules/*.rewind.json --target http://localhost:4000
+  env:
+    REWIND_URL: http://localhost:3000
+```
+
+Runs are listed at `/verifications`.
+
+---
+
+## Investigation
+
+A failed execution's page includes an evidence-based investigation:
+
+- **Observation** — what the request returned
+- **Evidence** — the failure origin, how often the fingerprint has occurred, the last successful execution of the same endpoint
+- **Hypotheses** — e.g. "a failing dependency causes it" or "the input causes it", each with an experiment
+- **Results** and a **conclusion** — one click tests every hypothesis by replaying with recorded dependencies, marking each confirmed or rejected
+
+The investigation is rule-based and deterministic: every statement links to the events, executions, fingerprints and replays it comes from, and testing hypotheses never repeats real side effects.
+
+---
+
 # API
 
 Current API endpoints:
 
 ```text
-GET  /api/events
-POST /api/events
+GET    /api/events
+POST   /api/events
+GET    /api/events/:id
 
-GET  /api/events/:id
+GET    /api/executions
+GET    /api/executions/:id                 execution, events, edges, graph
+GET    /api/executions/compare             ?original=…&candidate=…
+GET    /api/executions/:id/capsule         export (?force=1 to override the secret scan)
+GET    /api/executions/:id/invariants
+POST   /api/executions/:id/invariants
+DELETE /api/invariants/:id
+GET    /api/executions/:id/investigation   read-only
+POST   /api/executions/:id/investigation   test hypotheses
 
-POST /api/replay
+GET    /api/fingerprints
+GET    /api/fingerprints/:id
 
-GET  /api/replays
+POST   /api/replay                         replay or experiment
+GET    /api/replays
+GET    /api/replays/:id/plan               dependency replay plan
 
-POST /api/webhooks/capture
+GET    /api/capsules
+POST   /api/capsules                       import
 
-POST /api/test-generator
+GET    /api/verifications
+POST   /api/verifications
+GET    /api/verifications/:id
 
-POST /api/test-runner
+POST   /api/webhooks/capture
 
-POST /api/test-capture
+POST   /api/test-generator
+POST   /api/test-runner
+
+POST   /api/test-capture
 ```
 
 ---
@@ -1132,6 +1389,18 @@ Configure it with:
 REWIND_REPLAY_BASE_URL=http://localhost:3000
 ```
 
+Replays, experiments, investigations and verifications send requests here (localhost only).
+
+---
+
+## Verification CLI
+
+`npm run verify` talks to the Rewind server at:
+
+```bash
+REWIND_URL=http://localhost:3000
+```
+
 ---
 
 # Docker Configuration
@@ -1168,46 +1437,58 @@ rewind/
 ├── src/
 │   ├── app/
 │   │   ├── api/
+│   │   │   ├── capsules/            capsule import and listing
 │   │   │   ├── events/
+│   │   │   ├── executions/          executions, graph, compare, capsule, invariants, investigation
+│   │   │   ├── fingerprints/
+│   │   │   ├── invariants/
 │   │   │   ├── replay/
-│   │   │   ├── replays/
+│   │   │   ├── replays/             history and replay plans
 │   │   │   ├── test-capture/
 │   │   │   ├── test-generator/
 │   │   │   ├── test-runner/
+│   │   │   ├── verifications/
 │   │   │   └── webhooks/
+│   │   ├── capsules/
 │   │   ├── events/
+│   │   ├── executions/              list, graph, compare, capsule
+│   │   ├── fingerprints/
+│   │   ├── lab/                     Replay Lab
 │   │   ├── replays/
-│   │   └── timeline/
+│   │   ├── timeline/
+│   │   └── verifications/
 │   │
 │   ├── components/
+│   │   ├── capsules/
 │   │   ├── dashboard/
 │   │   ├── events/
-│   │   └── icons/
+│   │   ├── executions/              invariants and investigation panels
+│   │   ├── icons/
+│   │   ├── lab/
+│   │   └── verifications/
 │   │
 │   └── lib/
-│       ├── db.ts
-│       ├── event-metadata.ts
-│       ├── events.ts
-│       ├── mock-events.ts
-│       ├── replay-diff.ts
-│       ├── replays.ts
-│       ├── rewind-http.ts
-│       ├── rewind.ts
-│       └── test-generator.ts
+│       ├── rewind.ts                capture SDK
+│       ├── rewind-http.ts           withRewindCapture (executions, replay plans)
+│       ├── rewind-fetch.ts          dependency recording and replay
+│       ├── correlation.ts           correlation IDs and traceparent
+│       ├── execution-context.ts     AsyncLocalStorage execution scope
+│       ├── db.ts / db-migrations.ts SQLite and additive migrations
+│       ├── events.ts / executions.ts / event-edges.ts
+│       ├── event-graph.ts           tree, failure origin (pure)
+│       ├── fingerprint.ts / fingerprints.ts
+│       ├── mutations.ts / dependency-replay.ts / replay-runner.ts
+│       ├── execution-diff.ts / execution-compare.ts
+│       ├── invariants.ts / invariant-store.ts
+│       ├── capsule.ts / capsule-store.ts / secret-scan.ts / redaction.ts
+│       ├── verification.ts / investigation.ts
+│       └── test-generator.ts / test-runner.ts / test-runs.ts
 │
 ├── scripts/
-│   └── seed.ts
+│   ├── seed.ts
+│   └── rewind-verify.ts             npm run verify
 │
-├── tests/
-│   ├── events.test.ts
-│   ├── replay.test.ts
-│   ├── replay-diff.test.ts
-│   ├── rewind-http.test.ts
-│   ├── rewind.test.ts
-│   ├── test-generator.test.ts
-│   ├── test-runner.test.ts
-│   ├── test-runner-api.test.ts
-│   └── webhook-capture.test.ts
+├── tests/                           unit and integration tests (Vitest)
 │
 ├── Dockerfile
 ├── docker-compose.yml
@@ -1263,15 +1544,20 @@ rewind/
 
 # Data Model
 
-Rewind currently stores two primary types of records:
-
 ```text
-Event
-  │
-  └────── 1:N ────── Replay
+Execution ── 1:N ── Event ── edges (parent_of) ── Event
+    │                 │
+    │                 └── 1:N ── Replay / experiment ── produces ── Execution
+    │
+    ├── Fingerprint (failed executions)
+    ├── Invariants
+    ├── Test runs (via its events)
+    └── Capsule import (when imported)
+
+Verification run ── 1:N ── results (one per replayed execution)
 ```
 
-One captured event can have multiple replay attempts.
+All tables live in the same SQLite database. Schema changes are applied at startup by additive, idempotent migrations (`src/lib/db-migrations.ts`): columns and tables are only ever added, existing rows are preserved, and the database is never deleted.
 
 ---
 
@@ -1288,9 +1574,12 @@ status
 duration
 source
 trace_id
+span_id
 request_id
 session_id
 user_id
+execution_id
+parent_event_id
 metadata
 payload
 created_at
@@ -1303,6 +1592,27 @@ timestamp
 type
 request_id
 user_id
+trace_id
+span_id
+session_id
+execution_id
+parent_event_id
+```
+
+---
+
+## Other Tables
+
+```text
+executions            one per request/webhook: status, span, root event, fingerprint
+event_edges           explicit relationships between events (parent_of)
+failure_fingerprints  normalised failure signatures
+replay_plans          how dependencies behave during a replay
+invariants            expected truths attached to an execution
+capsule_imports       capsules imported into this Rewind
+verification_runs     verification runs and their per-execution results
+verification_results
+test_runs             generated regression test runs, linked to their event
 ```
 
 ---
@@ -1323,9 +1633,14 @@ payload
 response_body
 response_headers
 created_at
+label
+mutations
+dependency_mode
+source_execution_id
+result_execution_id
 ```
 
-Each replay references its original event.
+Each replay references its original event, the execution it came from and the execution it produced.
 
 ---
 
@@ -1348,6 +1663,17 @@ Rewind includes automated tests covering:
 - test generation
 - test execution
 - test runner API
+- correlation IDs and W3C traceparent parsing
+- execution identity and the event graph
+- schema migrations against legacy databases
+- failure fingerprints
+- dependency recording, redaction and dependency replay
+- Replay Lab mutations
+- execution diff
+- invariants
+- capsule export, import, integrity and secret scanning
+- CI verification
+- investigation
 
 Run the complete test suite:
 
@@ -1372,6 +1698,7 @@ npm run build
 | `npm start`                 | Start production server   |
 | `npm test`                  | Run automated tests       |
 | `npm run seed`              | Seed demo events          |
+| `npm run verify`            | Verify recorded failures against a candidate build |
 | `docker compose up --build` | Build and run with Docker |
 | `docker compose down`       | Stop Docker deployment    |
 
@@ -1381,12 +1708,17 @@ npm run build
 
 Rewind is designed as a local-first engineering tool.
 
-The current MVP provides:
+Rewind provides:
 
 - sensitive header redaction
+- redaction of credentials in dependency URLs, query strings and JSON fields
 - replay header sanitization
 - localhost replay restrictions
 - replay identification headers
+- dependency replay from recordings by default, so replays and verifications do not repeat real side effects
+- experiments cannot set credential or transport headers
+- a secret scan before capsule export, blocking by default
+- capsule integrity digests, validated on import
 - SQLite local persistence
 
 However, Rewind should not currently be treated as a production-hardened public service.
@@ -1566,11 +1898,9 @@ See the [LICENSE](LICENSE) file for the full license text.
 
 # Status
 
-Rewind is currently an MVP.
+The core capture → inspect → replay → compare → test workflow is implemented, and v0.2 adds the execution loop around it: executions and their graph, failure fingerprints, dependency recording and replay, Replay Lab experiments, execution diff, invariants, Reproduction Capsules, CI verification and evidence-based investigation.
 
-The core capture → inspect → replay → compare → test workflow is implemented.
-
-The project is intentionally being kept focused before expanding into larger observability, AI, integration, and collaboration features.
+The project is intentionally being kept focused before expanding into larger observability, integration, and collaboration features.
 
 ---
 
