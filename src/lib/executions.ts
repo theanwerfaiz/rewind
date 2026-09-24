@@ -222,6 +222,30 @@ export function getExecutions(limit = 100): RewindExecution[] {
   return rows.map(mapExecution);
 }
 
+/** Executions whose ID starts with, or root title contains, the pattern. */
+export function searchExecutions(
+  idPrefix: string,
+  titleContains: string,
+  limit = 8,
+): RewindExecution[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT ${EXECUTION_COLUMNS}
+      FROM executions
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.id LIKE ? ESCAPE '\\'
+        OR root.title LIKE ? ESCAPE '\\'
+      ORDER BY executions.started_at DESC
+      LIMIT ?
+      `,
+    )
+    .all(idPrefix, titleContains, limit) as ExecutionRow[];
+
+  return rows.map(mapExecution);
+}
+
 /** The newest successful executions, replays excluded. */
 export function getRecentSuccessfulExecutions(limit = 500): RewindExecution[] {
   const rows = db
