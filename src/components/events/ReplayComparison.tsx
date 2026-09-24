@@ -51,14 +51,14 @@ function changeLabel(type: "added" | "removed" | "changed") {
 
 function changeClass(type: "added" | "removed" | "changed") {
   if (type === "added") {
-    return "bg-emerald-500/10 text-emerald-400";
+    return "bg-success-soft text-success";
   }
 
   if (type === "removed") {
-    return "bg-red-500/10 text-red-400";
+    return "bg-failure-soft text-failure";
   }
 
-  return "bg-amber-500/10 text-amber-400";
+  return "bg-warning-soft text-warning";
 }
 
 export function ReplayComparison({
@@ -79,12 +79,12 @@ export function ReplayComparison({
   const identical = changes.length === 0;
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-medium">Replay Comparison</h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             Compare the captured payload with the payload actually replayed.
           </p>
         </div>
@@ -92,8 +92,8 @@ export function ReplayComparison({
         <div
           className={`rounded-full px-3 py-1 text-xs font-medium ${
             identical
-              ? "bg-emerald-500/10 text-emerald-400"
-              : "bg-amber-500/10 text-amber-400"
+              ? "bg-success-soft text-success"
+              : "bg-warning-soft text-warning"
           }`}
         >
           {identical
@@ -110,8 +110,8 @@ export function ReplayComparison({
           onClick={() => setView("side-by-side")}
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             view === "side-by-side"
-              ? "border-white/20 bg-white/10 text-white"
-              : "border-white/10 bg-black/20 text-slate-500 hover:text-white"
+              ? "border-line-strong bg-hover text-ink"
+              : "border-line bg-canvas text-muted hover:text-ink"
           }`}
         >
           Side by side
@@ -122,8 +122,8 @@ export function ReplayComparison({
           onClick={() => setView("json")}
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             view === "json"
-              ? "border-white/20 bg-white/10 text-white"
-              : "border-white/10 bg-black/20 text-slate-500 hover:text-white"
+              ? "border-line-strong bg-hover text-ink"
+              : "border-line bg-canvas text-muted hover:text-ink"
           }`}
         >
           JSON
@@ -155,24 +155,24 @@ export function ReplayComparison({
       {!identical ? (
         <div className="mt-6">
           <div className="mb-3">
-            <h3 className="text-sm font-medium text-slate-300">Changes</h3>
+            <h3 className="text-sm font-medium text-ink-2">Changes</h3>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-faint">
               Field-level differences between the captured and replayed
               payloads.
             </p>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-white/5">
+          <div className="overflow-hidden rounded-xl border border-line">
             <div className="divide-y divide-white/5">
               {changes.map((change, index) => (
                 <div
                   key={`${change.path}-${index}`}
-                  className="bg-black/20 px-4 py-4"
+                  className="bg-canvas px-4 py-4"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <div className="font-mono text-sm text-slate-300">
+                      <div className="font-mono text-sm text-ink-2">
                         {change.path}
                       </div>
 
@@ -186,11 +186,11 @@ export function ReplayComparison({
                         ) : null}
 
                         {change.type === "changed" ? (
-                          <span className="text-slate-600">→</span>
+                          <span className="text-faint">→</span>
                         ) : null}
 
                         {change.type === "removed" ? (
-                          <span className="text-slate-600">→</span>
+                          <span className="text-faint">→</span>
                         ) : null}
 
                         {change.type !== "removed" ? (
@@ -234,13 +234,13 @@ function ValueBox({
     <div
       className={`max-w-full rounded-lg border px-3 py-2 ${
         type === "original"
-          ? "border-red-500/10 bg-red-500/5"
-          : "border-emerald-500/10 bg-emerald-500/5"
+          ? "border-failure/10 bg-failure-soft"
+          : "border-success/10 bg-success-soft"
       }`}
     >
-      <span className="mr-2 text-xs text-slate-600">{label}:</span>
+      <span className="mr-2 text-xs text-faint">{label}:</span>
 
-      <code className="break-all text-xs text-slate-300">
+      <code className="break-all text-xs text-ink-2">
         {formatValue(value)}
       </code>
     </div>
@@ -257,14 +257,14 @@ function PayloadPanel({
   value: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/20">
-      <div className="border-b border-white/5 px-4 py-3">
-        <div className="text-sm font-medium text-slate-300">{title}</div>
+    <div className="overflow-hidden rounded-xl border border-line bg-canvas">
+      <div className="border-b border-line px-4 py-3">
+        <div className="text-sm font-medium text-ink-2">{title}</div>
 
-        <div className="mt-1 text-xs text-slate-600">{description}</div>
+        <div className="mt-1 text-xs text-faint">{description}</div>
       </div>
 
-      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-slate-300">
+      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-ink-2">
         {value}
       </pre>
     </div>
@@ -273,12 +273,12 @@ function PayloadPanel({
 
 function JsonColumn({ title, value }: { title: string; value: string }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/20">
-      <div className="border-b border-white/5 px-4 py-3 text-sm font-medium text-slate-300">
+    <div className="overflow-hidden rounded-xl border border-line bg-canvas">
+      <div className="border-b border-line px-4 py-3 text-sm font-medium text-ink-2">
         {title}
       </div>
 
-      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-slate-300">
+      <pre className="max-h-96 overflow-auto p-4 text-sm leading-6 text-ink-2">
         {value}
       </pre>
     </div>

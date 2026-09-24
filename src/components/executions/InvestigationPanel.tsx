@@ -33,7 +33,7 @@ function Refs({ refs }: { refs: EvidenceRef[] }) {
         <Link
           key={`${ref.kind}:${ref.id}`}
           href={refHref(ref)}
-          className="rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-slate-500 transition hover:text-slate-200"
+          className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs text-muted transition hover:text-ink"
         >
           {ref.kind}
         </Link>
@@ -44,16 +44,16 @@ function Refs({ refs }: { refs: EvidenceRef[] }) {
 
 function Label({ children }: { children: string }) {
   return (
-    <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+    <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
       {children}
     </div>
   );
 }
 
 const STATUS_CLASS: Record<HypothesisResult["status"], string> = {
-  confirmed: "text-emerald-400",
-  rejected: "text-red-400",
-  inconclusive: "text-amber-300",
+  confirmed: "text-success",
+  rejected: "text-failure",
+  inconclusive: "text-warning",
 };
 
 export function InvestigationPanel({
@@ -111,12 +111,12 @@ export function InvestigationPanel({
     results?.find((result) => result.hypothesisId === hypothesisId);
 
   return (
-    <section className="mb-8 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
+    <section className="mb-8 rounded-2xl border border-line bg-panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-medium text-slate-200">Investigation</h2>
+          <h2 className="text-sm font-medium text-ink">Investigation</h2>
 
-          <p className="mt-1 max-w-2xl text-xs text-slate-600">
+          <p className="mt-1 max-w-2xl text-xs text-faint">
             Evidence-based and rule-based: every statement links to what it
             comes from. Testing a hypothesis replays this execution with
             dependencies answered from recordings, so nothing real happens
@@ -129,7 +129,7 @@ export function InvestigationPanel({
             type="button"
             onClick={test}
             disabled={running}
-            className="flex h-9 shrink-0 items-center rounded-lg bg-white px-3 text-xs font-medium text-black transition hover:bg-slate-200 disabled:opacity-50"
+            className="flex h-9 shrink-0 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-ink transition hover:brightness-110 disabled:opacity-50"
           >
             {running
               ? "Testing…"
@@ -145,7 +145,7 @@ export function InvestigationPanel({
       <div className="mt-5 space-y-5 text-sm">
         <div>
           <Label>Observation</Label>
-          <p className="text-slate-200">
+          <p className="text-ink">
             {investigation.observation.statement}
             <Refs refs={investigation.observation.refs} />
           </p>
@@ -154,7 +154,7 @@ export function InvestigationPanel({
         {investigation.evidence.length > 0 && (
           <div>
             <Label>Evidence</Label>
-            <ul className="space-y-1.5 text-slate-300">
+            <ul className="space-y-1.5 text-ink-2">
               {investigation.evidence.map((finding) => (
                 <li key={finding.statement}>
                   {finding.statement}
@@ -169,7 +169,7 @@ export function InvestigationPanel({
           <Label>Hypotheses</Label>
 
           {investigation.hypotheses.length === 0 ? (
-            <p className="text-slate-500">
+            <p className="text-muted">
               No testable hypothesis yet. Record dependencies with rewindFetch,
               or capture a successful request to the same endpoint, to give the
               investigation more to work with.
@@ -182,17 +182,17 @@ export function InvestigationPanel({
                 return (
                   <li
                     key={hypothesis.id}
-                    className="rounded-xl border border-white/[0.06] bg-black/20 p-4"
+                    className="rounded-xl border border-line bg-canvas p-4"
                   >
-                    <div className="text-slate-200">
-                      <span className="mr-2 font-mono text-xs text-slate-600">
+                    <div className="text-ink">
+                      <span className="mr-2 font-mono text-xs text-faint">
                         H{index + 1}
                       </span>
                       {hypothesis.statement}
                       <Refs refs={hypothesis.refs} />
                     </div>
 
-                    <div className="mt-2 text-xs text-slate-500">
+                    <div className="mt-2 text-xs text-muted">
                       Experiment: {hypothesis.experiment.description}
                     </div>
 
@@ -203,7 +203,7 @@ export function InvestigationPanel({
                         >
                           {result.status}
                         </span>{" "}
-                        <span className="text-slate-400">
+                        <span className="text-ink-2">
                           {result.statement}
                         </span>
                         <Refs refs={result.refs} />
@@ -219,11 +219,11 @@ export function InvestigationPanel({
         {conclusion && (
           <div>
             <Label>Conclusion</Label>
-            <p className="text-slate-200">{conclusion}</p>
+            <p className="text-ink">{conclusion}</p>
           </div>
         )}
 
-        {error && <p className="text-xs text-red-300">{error}</p>}
+        {error && <p className="text-xs text-failure">{error}</p>}
       </div>
     </section>
   );

@@ -8,6 +8,11 @@ import { TestGenerator } from "@/components/events/TestGenerator";
 import { getEventById } from "@/lib/events";
 import { getReplaysForEvent } from "@/lib/replays";
 import { getTestRunsForEvent } from "@/lib/test-runs";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge, StatusBadge } from "@/components/ui/StatusBadge";
+import { IdChip } from "@/components/ui/IdChip";
+import { ButtonLink } from "@/components/ui/primitives";
+import { shortId } from "@/lib/format";
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -15,7 +20,7 @@ function formatDate(timestamp: string) {
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-slate-300">
+    <pre className="overflow-x-auto rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-ink-2">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -23,14 +28,14 @@ function JsonBlock({ value }: { value: unknown }) {
 
 function replayStatusClass(status: number) {
   if (status >= 200 && status < 300) {
-    return "bg-emerald-500/10 text-emerald-400";
+    return "bg-success-soft text-success";
   }
 
   if (status >= 400) {
-    return "bg-red-500/10 text-red-400";
+    return "bg-failure-soft text-failure";
   }
 
-  return "bg-white/10 text-slate-400";
+  return "bg-hover text-ink-2";
 }
 
 export default async function EventDetailsPage({
@@ -65,70 +70,47 @@ export default async function EventDetailsPage({
   const response = metadata?.response ?? null;
 
   return (
-    <main className="min-h-screen bg-[#08090b] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8 flex flex-wrap items-center gap-4">
-          <Link
-            href="/"
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← Back to events
-          </Link>
-
-          {(isHttpEvent || event.type === "webhook.received") && (
-            <Link
-              href={`/lab/${event.id}`}
-              className="text-sm text-blue-300 transition hover:text-blue-200"
-            >
-              Open in Replay Lab →
-            </Link>
-          )}
-        </div>
-
-        {/* Event Header */}
-        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-3">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-wider text-slate-400">
-                {event.type}
-              </span>
-
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  event.status === "success"
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : event.status === "error"
-                      ? "bg-red-500/10 text-red-400"
-                      : "bg-white/10 text-slate-400"
-                }`}
-              >
-                {event.status}
-              </span>
-            </div>
-
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {event.title}
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-500">
+    <>
+      <PageHeader
+        crumbs={[
+          ...(event.executionId
+            ? [
+                { label: "Executions", href: "/executions" },
+                {
+                  label: shortId(event.executionId),
+                  href: `/executions/${event.executionId}`,
+                },
+              ]
+            : [{ label: "Events", href: "/events" }]),
+          { label: "Event" },
+        ]}
+        badges={
+          <>
+            <Badge>{event.type}</Badge>
+            <StatusBadge status={event.status} />
+          </>
+        }
+        title={event.title}
+        meta={
+          <>
+            <span className="font-mono tabular-nums">
               {formatDate(event.timestamp)}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4">
-            <div className="text-xs uppercase tracking-wider text-slate-500">
-              Event ID
-            </div>
-
-            <div className="mt-2 max-w-xs break-all font-mono text-sm text-slate-300">
-              {event.id}
-            </div>
-          </div>
-        </div>
+            </span>
+            <IdChip id={event.id} full />
+          </>
+        }
+        actions={
+          (isHttpEvent || event.type === "webhook.received") && (
+            <ButtonLink href={`/lab/${event.id}`} variant="primary">
+              Open in Replay Lab
+            </ButtonLink>
+          )
+        }
+      />
 
         {/* Overview + Context */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <section className="rounded-2xl border border-line bg-panel p-6">
             <h2 className="mb-5 text-lg font-medium">Overview</h2>
 
             <div className="space-y-4">
@@ -147,7 +129,7 @@ export default async function EventDetailsPage({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <section className="rounded-2xl border border-line bg-panel p-6">
             <h2 className="mb-5 text-lg font-medium">Request Context</h2>
 
             <div className="space-y-4">
@@ -188,19 +170,19 @@ export default async function EventDetailsPage({
         </div>
 
         {/* Request */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-medium">Request</h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted">
                 What Rewind captured from the incoming request.
               </p>
             </div>
 
             {isHttpEvent && method && path ? (
-              <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-sm text-slate-300">
-                <span className="text-white">{method}</span> {path}
+              <div className="rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm text-ink-2">
+                <span className="text-ink">{method}</span> {path}
               </div>
             ) : null}
           </div>
@@ -208,28 +190,28 @@ export default async function EventDetailsPage({
           {isHttpEvent ? (
             <div className="space-y-6">
               <div>
-                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                   Headers
                 </div>
 
                 {requestHeaders ? (
                   <JsonBlock value={requestHeaders} />
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     No request headers captured.
                   </p>
                 )}
               </div>
 
               <div>
-                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                   Payload
                 </div>
 
                 {payload !== undefined && payload !== null ? (
                   <JsonBlock value={payload} />
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     No request payload captured.
                   </p>
                 )}
@@ -240,7 +222,7 @@ export default async function EventDetailsPage({
               {payload !== undefined && payload !== null ? (
                 <JsonBlock value={payload} />
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-muted">
                   No request payload captured.
                 </p>
               )}
@@ -249,11 +231,11 @@ export default async function EventDetailsPage({
         </section>
 
         {/* Response */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="mb-5">
             <h2 className="text-lg font-medium">Response</h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               What the application returned.
             </p>
           </div>
@@ -270,36 +252,36 @@ export default async function EventDetailsPage({
               </div>
 
               <div>
-                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                   Headers
                 </div>
 
                 {response.headers ? (
                   <JsonBlock value={response.headers} />
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     No response headers captured.
                   </p>
                 )}
               </div>
 
               <div>
-                <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                <div className="mb-2 text-xs uppercase tracking-wider text-muted">
                   Body
                 </div>
 
                 {hasResponseBody(response) ? (
                   <JsonBlock value={response.body} />
                 ) : (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     No response body captured.
                   </p>
                 )}
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-white/5 bg-black/20 p-5">
-              <p className="text-sm text-slate-500">No response captured.</p>
+            <div className="rounded-xl border border-line bg-canvas p-5">
+              <p className="text-sm text-muted">No response captured.</p>
             </div>
           )}
         </section>
@@ -312,37 +294,37 @@ export default async function EventDetailsPage({
         />
 
         {/* Replay History */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-medium">Replay History</h2>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-muted">
                 Every replay attempt made from this event.
               </p>
             </div>
 
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-400">
+            <span className="rounded-full border border-line bg-canvas px-3 py-1 text-xs text-ink-2">
               {replays.length} {replays.length === 1 ? "replay" : "replays"}
             </span>
           </div>
 
           {replays.length === 0 ? (
-            <div className="rounded-xl border border-white/5 bg-black/20 p-5">
-              <p className="text-sm text-slate-500">No replay attempts yet.</p>
+            <div className="rounded-xl border border-line bg-canvas p-5">
+              <p className="text-sm text-muted">No replay attempts yet.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-white/5">
+            <div className="overflow-hidden rounded-xl border border-line">
               <div className="divide-y divide-white/5">
                 {replays.map((replay) => (
                   <Link
                     key={replay.id}
                     href={`/replays/${replay.id}`}
-                    className="flex flex-col gap-4 px-5 py-4 transition hover:bg-white/[0.03] md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-4 px-5 py-4 transition hover:bg-panel md:flex-row md:items-center md:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 font-mono text-xs text-slate-300">
+                        <span className="rounded-md border border-line bg-canvas px-2 py-1 font-mono text-xs text-ink-2">
                           {replay.method}
                         </span>
 
@@ -354,21 +336,21 @@ export default async function EventDetailsPage({
                           {replay.status}
                         </span>
 
-                        <span className="font-mono text-xs text-slate-500">
+                        <span className="font-mono text-xs text-muted">
                           {replay.duration}
                         </span>
                       </div>
 
-                      <div className="mt-2 truncate font-mono text-sm text-slate-300">
+                      <div className="mt-2 truncate font-mono text-sm text-ink-2">
                         {replay.url}
                       </div>
 
-                      <div className="mt-1 text-xs text-slate-600">
+                      <div className="mt-1 text-xs text-faint">
                         {formatDate(replay.timestamp)}
                       </div>
                     </div>
 
-                    <div className="shrink-0 text-sm text-slate-500">
+                    <div className="shrink-0 text-sm text-muted">
                       View →
                     </div>
                   </Link>
@@ -382,10 +364,10 @@ export default async function EventDetailsPage({
         <TestGenerator eventId={event.id} eventType={event.type} />
 
         {testRuns.length > 0 && (
-          <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
             <h2 className="text-lg font-medium">Regression test runs</h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               Generated tests run against this event, newest first.
             </p>
 
@@ -393,23 +375,23 @@ export default async function EventDetailsPage({
               {testRuns.map((run) => (
                 <li
                   key={run.id}
-                  className="flex items-center gap-3 rounded-lg bg-black/20 px-3 py-2 text-sm"
+                  className="flex items-center gap-3 rounded-lg bg-canvas px-3 py-2 text-sm"
                 >
                   <span
                     className={`w-12 shrink-0 font-mono text-xs ${
-                      run.success ? "text-emerald-400" : "text-red-400"
+                      run.success ? "text-success" : "text-failure"
                     }`}
                   >
                     {run.success ? "PASS" : "FAIL"}
                   </span>
 
-                  <span className="text-slate-400">{run.framework}</span>
+                  <span className="text-ink-2">{run.framework}</span>
 
-                  <span className="font-mono text-xs text-slate-600">
+                  <span className="font-mono text-xs text-faint">
                     {run.duration}
                   </span>
 
-                  <span className="ml-auto text-xs text-slate-600">
+                  <span className="ml-auto text-xs text-faint">
                     {formatDate(run.createdAt)}
                   </span>
                 </li>
@@ -419,19 +401,19 @@ export default async function EventDetailsPage({
         )}
 
         {/* Raw Metadata */}
-        <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
           <details>
             <summary className="cursor-pointer list-none">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-medium">Raw Metadata</h2>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-muted">
                     Full captured metadata for advanced debugging.
                   </p>
                 </div>
 
-                <span className="text-sm text-slate-500">Expand</span>
+                <span className="text-sm text-muted">Expand</span>
               </div>
             </summary>
 
@@ -439,13 +421,12 @@ export default async function EventDetailsPage({
               {metadata ? (
                 <JsonBlock value={metadata} />
               ) : (
-                <p className="text-sm text-slate-500">No metadata captured.</p>
+                <p className="text-sm text-muted">No metadata captured.</p>
               )}
             </div>
           </details>
         </section>
-      </div>
-    </main>
+      </>
   );
 }
 
@@ -463,20 +444,20 @@ function InfoRow({
   href?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-white/5 pb-3 last:border-0 last:pb-0">
-      <span className="text-xs uppercase tracking-wider text-slate-500">
+    <div className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0">
+      <span className="text-xs uppercase tracking-wider text-muted">
         {label}
       </span>
 
       {href ? (
         <Link
           href={href}
-          className="break-all font-mono text-sm text-slate-300 transition hover:text-white"
+          className="break-all font-mono text-sm text-ink-2 transition hover:text-ink"
         >
           {value}
         </Link>
       ) : (
-        <span className="break-all font-mono text-sm text-slate-300">
+        <span className="break-all font-mono text-sm text-ink-2">
           {value}
         </span>
       )}

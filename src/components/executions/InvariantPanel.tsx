@@ -28,7 +28,7 @@ const KINDS = [
 type Kind = (typeof KINDS)[number][0];
 
 const inputClass =
-  "h-9 min-w-0 rounded-lg border border-white/10 bg-black/30 px-2.5 font-mono text-xs text-slate-200 outline-none transition placeholder:text-slate-700 focus:border-white/25";
+  "h-9 min-w-0 rounded-lg border border-line bg-canvas px-2.5 font-mono text-xs text-ink outline-none transition placeholder:text-faint focus:border-accent";
 
 function parseValue(value: string) {
   try {
@@ -140,10 +140,10 @@ export function InvariantPanel({
   );
 
   return (
-    <section className="mb-8 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
-      <h2 className="text-sm font-medium text-slate-200">Invariants</h2>
+    <section className="mb-8 rounded-2xl border border-line bg-panel p-6">
+      <h2 className="text-sm font-medium text-ink">Invariants</h2>
 
-      <p className="mt-1 text-xs text-slate-600">
+      <p className="mt-1 text-xs text-faint">
         What must be true when this works. Replays and verifications check them;
         a fix only verifies when they hold.
       </p>
@@ -153,21 +153,21 @@ export function InvariantPanel({
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex items-center gap-3 rounded-lg bg-black/20 px-3 py-2 text-sm"
+              className="flex items-center gap-3 rounded-lg bg-canvas px-3 py-2 text-sm"
             >
               <span
-                className={`w-12 shrink-0 font-mono text-[11px] ${
-                  item.passed ? "text-emerald-400" : "text-red-400"
+                className={`w-12 shrink-0 font-mono text-xs ${
+                  item.passed ? "text-success" : "text-failure"
                 }`}
               >
                 {item.passed ? "holds" : "fails"}
               </span>
 
-              <span className="min-w-0 flex-1 truncate text-slate-200">
+              <span className="min-w-0 flex-1 truncate text-ink">
                 {item.description}
               </span>
 
-              <span className="shrink-0 font-mono text-[11px] text-slate-600">
+              <span className="shrink-0 font-mono text-xs text-faint">
                 here: {item.actual}
               </span>
 
@@ -176,7 +176,7 @@ export function InvariantPanel({
                 aria-label={`Remove ${item.description}`}
                 disabled={busy}
                 onClick={() => remove(item.id)}
-                className="shrink-0 text-slate-600 transition hover:text-slate-200"
+                className="shrink-0 text-faint transition hover:text-ink"
               >
                 ×
               </button>
@@ -193,7 +193,7 @@ export function InvariantPanel({
               type="button"
               disabled={busy}
               onClick={() => add(suggestion.definition)}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-400 transition hover:border-white/25 hover:text-slate-200"
+              className="rounded-full border border-line px-3 py-1 text-xs text-ink-2 transition hover:border-line-strong hover:text-ink"
             >
               + {suggestion.description}
             </button>
@@ -252,13 +252,13 @@ export function InvariantPanel({
         <button
           type="submit"
           disabled={busy}
-          className="h-9 rounded-lg bg-white px-3 text-xs font-medium text-black transition hover:bg-slate-200 disabled:opacity-50"
+          className="h-9 rounded-lg bg-accent px-3 text-xs font-medium text-accent-ink transition hover:brightness-110 disabled:opacity-50"
         >
           Add
         </button>
       </form>
 
-      {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+      {error && <p className="mt-2 text-xs text-failure">{error}</p>}
     </section>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { getExecutions } from "@/lib/executions";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 function formatDateTime(timestamp: string) {
   return new Date(timestamp).toLocaleString([], {
@@ -30,136 +31,96 @@ export default async function ExecutionsPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <Link
-              href="/"
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              ← Back to events
-            </Link>
+    <>
+      <PageHeader
+        crumbs={[{ label: "Monitor" }, { label: "Executions" }]}
+        title="Executions"
+        description="Each execution is one request or webhook and every event it caused. Open one to see its execution graph."
+        meta={
+          <>
+            <span>{executions.length} recent</span>
 
-            <Link
-              href="/fingerprints"
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              Failures
-            </Link>
-
-            <Link
-              href="/capsules"
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              Capsules
-            </Link>
-
-            <Link
-              href="/verifications"
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              Verifications
-            </Link>
-          </div>
-
-          <div className="mt-5">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Executions
-              </h1>
-
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-500">
-                {executions.length} recent
-              </span>
-
-              {failed > 0 && (
-                <Link
-                  href="/fingerprints"
-                  className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-300 transition hover:border-red-400/40"
-                >
-                  {failed} failed · view failures →
-                </Link>
-              )}
-            </div>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Each execution is one request or webhook and every event it
-              caused. Open one to see its execution graph.
-            </p>
-          </div>
-        </div>
+            {failed > 0 && (
+              <Link
+                href="/fingerprints"
+                className="text-failure hover:brightness-125"
+              >
+                {failed} failed · view failures
+              </Link>
+            )}
+          </>
+        }
+      />
 
         {executions.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-16 text-center">
-            <div className="text-3xl text-slate-700">◷</div>
+          <div className="rounded-2xl border border-line bg-panel p-16 text-center">
+            <div className="text-3xl text-faint">◷</div>
 
-            <h2 className="mt-4 text-sm font-medium text-slate-300">
+            <h2 className="mt-4 text-sm font-medium text-ink-2">
               No executions yet
             </h2>
 
-            <p className="mx-auto mt-1 max-w-sm text-xs text-slate-600">
+            <p className="mx-auto mt-1 max-w-sm text-xs text-faint">
               Capture your first request to create an execution you can replay
               and turn into a test.
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d1320]">
+          <div className="overflow-hidden rounded-2xl border border-line bg-panel">
             {executions.map((execution) => (
               <Link
                 key={execution.id}
                 href={`/executions/${execution.id}`}
-                className="group flex items-center gap-4 border-b border-white/[0.05] px-5 py-4 transition last:border-0 hover:bg-white/[0.03]"
+                className="group flex items-center gap-4 border-b border-line px-5 py-4 transition last:border-0 hover:bg-panel"
               >
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${
                     execution.status === "error"
-                      ? "bg-red-400"
-                      : "bg-emerald-400"
+                      ? "bg-failure"
+                      : "bg-success"
                   }`}
                 />
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-sm text-slate-200 group-hover:text-white">
+                    <span className="truncate text-sm text-ink group-hover:text-ink">
                       {execution.rootTitle ?? "Untitled execution"}
                     </span>
 
                     {execution.isReplay && (
-                      <span className="shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-300">
+                      <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-xs uppercase tracking-wider text-accent">
                         replay
                       </span>
                     )}
 
                     {execution.capsuleId && (
-                      <span className="shrink-0 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-violet-300">
+                      <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-xs uppercase tracking-wider text-accent">
                         imported
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-0.5 truncate font-mono text-[11px] text-slate-600">
+                  <div className="mt-0.5 truncate font-mono text-xs text-faint">
                     {execution.id}
                   </div>
                 </div>
 
-                <span className="hidden shrink-0 text-xs text-slate-500 sm:block">
+                <span className="hidden shrink-0 text-xs text-muted sm:block">
                   {execution.eventCount}{" "}
                   {execution.eventCount === 1 ? "event" : "events"}
                 </span>
 
-                <span className="w-20 shrink-0 text-right font-mono text-xs text-slate-500">
+                <span className="w-20 shrink-0 text-right font-mono text-xs text-muted">
                   {formatDuration(execution.startedAt, execution.endedAt)}
                 </span>
 
-                <span className="hidden w-36 shrink-0 text-right text-xs text-slate-600 md:block">
+                <span className="hidden w-36 shrink-0 text-right text-xs text-faint md:block">
                   {formatDateTime(execution.startedAt)}
                 </span>
               </Link>
             ))}
           </div>
         )}
-      </div>
-    </main>
+      </>
   );
 }

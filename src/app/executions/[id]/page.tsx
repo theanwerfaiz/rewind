@@ -18,6 +18,11 @@ import {
   type InvariantDefinition,
 } from "@/lib/invariants";
 import { getReplayByResultExecutionId } from "@/lib/replays";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge, StatusBadge } from "@/components/ui/StatusBadge";
+import { IdChip } from "@/components/ui/IdChip";
+import { ButtonLink } from "@/components/ui/primitives";
+import { shortId } from "@/lib/format";
 
 function getEventIcon(type: string) {
   switch (type) {
@@ -56,20 +61,14 @@ function getEventIcon(type: string) {
 function statusDotClass(status: string) {
   switch (status) {
     case "success":
-      return "bg-emerald-400";
+      return "bg-success";
 
     case "error":
-      return "bg-red-400";
+      return "bg-failure";
 
     default:
-      return "bg-slate-500";
+      return "bg-faint";
   }
-}
-
-function statusPillClass(status: string) {
-  return status === "error"
-    ? "border-red-500/30 bg-red-500/10 text-red-300"
-    : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
 }
 
 function formatMs(ms: number) {
@@ -82,14 +81,14 @@ function formatMs(ms: number) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-      <div className="text-xs uppercase tracking-wider text-slate-600">
+    <div className="rounded-xl border border-line bg-panel p-5">
+      <div className="text-xs uppercase tracking-wider text-faint">
         {label}
       </div>
 
       <div
         title={value}
-        className="mt-2 truncate font-mono text-sm text-slate-200"
+        className="mt-2 truncate font-mono text-sm text-ink"
       >
         {value}
       </div>
@@ -205,91 +204,63 @@ export default async function ExecutionPage({
   }
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8 flex items-center gap-4 text-sm">
-          <Link
-            href="/executions"
-            className="text-slate-500 transition hover:text-slate-200"
-          >
-            ← All executions
-          </Link>
-
-          <Link
-            href="/fingerprints"
-            className="text-slate-500 transition hover:text-slate-200"
-          >
-            Failures
-          </Link>
-
-          <Link
-            href={`/executions/${execution.id}/capsule`}
-            className="text-violet-300 transition hover:text-violet-200"
-          >
-            Capsule
-          </Link>
-
-          {execution.rootEventId && (
-            <Link
-              href={`/events/${execution.rootEventId}`}
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              Root event →
-            </Link>
-          )}
-
-          {execution.rootEventId &&
-            (execution.rootType === "http.request" ||
-              execution.rootType === "webhook.received") && (
-              <Link
-                href={`/lab/${execution.rootEventId}`}
-                className="text-blue-300 transition hover:text-blue-200"
-              >
-                Replay Lab →
-              </Link>
+    <>
+      <PageHeader
+        crumbs={[
+          { label: "Executions", href: "/executions" },
+          { label: shortId(execution.id) },
+        ]}
+        badges={
+          <>
+            <StatusBadge status={execution.status} />
+            {execution.isReplay && <Badge tone="accent">replay</Badge>}
+            {execution.capsuleId && <Badge tone="accent">imported</Badge>}
+          </>
+        }
+        title={execution.rootTitle ?? "Execution"}
+        meta={<IdChip id={execution.id} full />}
+        actions={
+          <>
+            {execution.rootEventId && (
+              <ButtonLink href={`/events/${execution.rootEventId}`} variant="ghost">
+                Root event
+              </ButtonLink>
             )}
-        </div>
 
-        <div className="mb-8">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-wider text-slate-400">
-              Execution
-            </span>
+            <ButtonLink href={`/executions/${execution.id}/capsule`}>
+              Capsule
+            </ButtonLink>
 
-            <span
-              className={`rounded-full border px-3 py-1 text-xs uppercase tracking-wider ${statusPillClass(
-                execution.status,
-              )}`}
-            >
-              {execution.status}
-            </span>
-          </div>
+            {execution.rootEventId &&
+              (execution.rootType === "http.request" ||
+                execution.rootType === "webhook.received") && (
+                <ButtonLink href={`/lab/${execution.rootEventId}`} variant="primary">
+                  Replay Lab
+                </ButtonLink>
+              )}
+          </>
+        }
+      />
 
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {execution.rootTitle ?? "Execution"}
-          </h1>
-
-          <p className="mt-2 break-all font-mono text-xs text-slate-500">
-            {execution.id}
-          </p>
+      <div className="mb-6 space-y-3 empty:hidden">
 
           {execution.capsuleId && (
-            <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] px-4 py-3 text-sm text-violet-200">
+            <div className="mt-4 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent">
               Imported from capsule{" "}
               <span className="font-mono text-xs">{execution.capsuleId}</span>
             </div>
           )}
 
           {replay && (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.04] px-4 py-3 text-sm">
-              <span className="text-blue-200">
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm">
+              <span className="text-accent">
                 Replay{replay.label ? `: ${replay.label}` : ""}
               </span>
 
               {replay.sourceExecutionId && (
                 <Link
                   href={`/executions/compare?original=${replay.sourceExecutionId}&candidate=${execution.id}`}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-accent hover:text-accent"
                 >
                   Diff with original →
                 </Link>
@@ -297,7 +268,7 @@ export default async function ExecutionPage({
 
               <Link
                 href={`/lab/${replay.eventId}`}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-ink-2 hover:text-ink"
               >
                 Replay Lab
               </Link>
@@ -316,27 +287,27 @@ export default async function ExecutionPage({
         </div>
 
         {firstFailure && (
-          <section className="mb-8 rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-6">
+          <section className="mb-8 rounded-2xl border border-failure/20 bg-failure-soft p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-400">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-failure">
                 Failure
               </div>
 
               {execution.fingerprintId && (
                 <Link
                   href={`/fingerprints/${execution.fingerprintId}`}
-                  className="rounded-lg border border-red-500/20 px-2.5 py-1 font-mono text-[11px] text-red-300 transition hover:border-red-400/40"
+                  className="rounded-lg border border-failure/20 px-2.5 py-1 font-mono text-xs text-failure transition hover:border-failure/40"
                 >
                   {execution.fingerprintId} →
                 </Link>
               )}
             </div>
 
-            <h2 className="mt-2 text-lg font-medium text-red-100">
+            <h2 className="mt-2 text-lg font-medium text-failure">
               {firstFailure.event.title}
             </h2>
 
-            <p className="mt-1 text-xs text-red-300/70">
+            <p className="mt-1 text-xs text-failure">
               Where the failure started, +
               {formatMs(timing(firstFailure).offsetMs)} into the execution. Path
               from the root:
@@ -352,11 +323,11 @@ export default async function ExecutionPage({
 
                 return (
                   <li key={eventId} className="flex items-center gap-2">
-                    {index > 0 && <span className="text-red-400/50">→</span>}
+                    {index > 0 && <span className="text-failure">→</span>}
 
                     <Link
                       href={`/events/${eventId}`}
-                      className="rounded-lg border border-red-500/20 bg-black/20 px-2.5 py-1.5 text-red-100 transition hover:border-red-400/40"
+                      className="rounded-lg border border-failure/20 bg-canvas px-2.5 py-1.5 text-failure transition hover:border-failure/40"
                     >
                       {node.event.title}
                     </Link>
@@ -380,20 +351,20 @@ export default async function ExecutionPage({
           suggestions={invariantSuggestions}
         />
 
-        <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
-          <div className="mb-5 flex items-end justify-between gap-4 border-b border-white/[0.06] pb-5">
+        <section className="rounded-2xl border border-line bg-panel p-6">
+          <div className="mb-5 flex items-end justify-between gap-4 border-b border-line pb-5">
             <div>
-              <h2 className="text-sm font-medium text-slate-200">
+              <h2 className="text-sm font-medium text-ink">
                 Execution Graph
               </h2>
 
-              <p className="mt-1 text-xs text-slate-600">
+              <p className="mt-1 text-xs text-faint">
                 Events nested under the event that caused them, in the order
                 they happened.
               </p>
             </div>
 
-            <span className="shrink-0 font-mono text-[11px] text-slate-600">
+            <span className="shrink-0 font-mono text-xs text-faint">
               0 — {formatMs(totalMs)}
             </span>
           </div>
@@ -408,8 +379,8 @@ export default async function ExecutionPage({
                 <li key={node.event.id}>
                   <Link
                     href={`/events/${node.event.id}`}
-                    className={`group grid grid-cols-1 items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-white/[0.03] md:grid-cols-[minmax(0,1fr)_minmax(0,40%)] ${
-                      onFailurePath ? "bg-red-500/[0.04]" : ""
+                    className={`group grid grid-cols-1 items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-panel md:grid-cols-[minmax(0,1fr)_minmax(0,40%)] ${
+                      onFailurePath ? "bg-failure-soft" : ""
                     }`}
                   >
                     <div
@@ -419,7 +390,7 @@ export default async function ExecutionPage({
                       }}
                     >
                       {node.depth > 0 && (
-                        <span className="-ml-3 font-mono text-xs text-slate-700">
+                        <span className="-ml-3 font-mono text-xs text-faint">
                           └
                         </span>
                       )}
@@ -427,8 +398,8 @@ export default async function ExecutionPage({
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-mono text-xs ${
                           node.event.status === "error"
-                            ? "border-red-500/30 text-red-300"
-                            : "border-white/[0.08] text-slate-400 group-hover:text-white"
+                            ? "border-failure/30 text-failure"
+                            : "border-line text-ink-2 group-hover:text-ink"
                         }`}
                       >
                         {getEventIcon(node.event.type)}
@@ -436,7 +407,7 @@ export default async function ExecutionPage({
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm text-slate-200 group-hover:text-white">
+                          <span className="truncate text-sm text-ink group-hover:text-ink">
                             {node.event.title}
                           </span>
 
@@ -449,14 +420,14 @@ export default async function ExecutionPage({
                           {node.orphan && (
                             <span
                               title="This event names a parent that was not captured."
-                              className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
+                              className="shrink-0 rounded bg-warning-soft px-1.5 py-0.5 text-xs text-warning"
                             >
                               missing parent
                             </span>
                           )}
                         </div>
 
-                        <div className="mt-0.5 truncate text-xs text-slate-600">
+                        <div className="mt-0.5 truncate text-xs text-faint">
                           {node.event.type}
                           {node.event.source ? ` • ${node.event.source}` : ""}
                         </div>
@@ -464,12 +435,12 @@ export default async function ExecutionPage({
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="relative h-2 flex-1 rounded-full bg-white/[0.04]">
+                      <div className="relative h-2 flex-1 rounded-full bg-raised">
                         <div
                           className={`absolute top-0 h-2 rounded-full ${
                             node.event.status === "error"
-                              ? "bg-red-400/70"
-                              : "bg-blue-400/60"
+                              ? "bg-failure"
+                              : "bg-accent/70"
                           }`}
                           style={{
                             left: `${left}%`,
@@ -479,7 +450,7 @@ export default async function ExecutionPage({
                         />
                       </div>
 
-                      <span className="w-28 shrink-0 text-right font-mono text-[11px] text-slate-600">
+                      <span className="w-28 shrink-0 text-right font-mono text-xs text-faint">
                         +{formatMs(offsetMs)}
                         {durationMs > 0 ? ` · ${formatMs(durationMs)}` : ""}
                       </span>
@@ -490,7 +461,6 @@ export default async function ExecutionPage({
             })}
           </ol>
         </section>
-      </div>
-    </main>
+      </>
   );
 }

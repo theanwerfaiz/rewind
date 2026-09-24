@@ -7,6 +7,10 @@ import type { RewindHttpMetadata } from "@/lib/event-metadata";
 import { getEventById, getEventsByExecutionId } from "@/lib/events";
 import { describeMutation } from "@/lib/mutations";
 import { getReplaysForEvent } from "@/lib/replays";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge } from "@/components/ui/StatusBadge";
+import { ButtonLink } from "@/components/ui/primitives";
+import { shortId } from "@/lib/format";
 
 const REPLAYABLE_TYPES = new Set(["http.request", "webhook.received"]);
 
@@ -22,22 +26,22 @@ function formatDateTime(timestamp: string) {
 
 function statusClass(status: number | undefined) {
   if (status === undefined) {
-    return "bg-white/10 text-slate-400";
+    return "bg-hover text-ink-2";
   }
 
   return status < 400
-    ? "bg-emerald-500/10 text-emerald-300"
-    : "bg-red-500/10 text-red-300";
+    ? "bg-success-soft text-success"
+    : "bg-failure-soft text-failure";
 }
 
 function Block({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <div className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-600">
+      <div className="mb-1.5 text-xs uppercase tracking-wider text-faint">
         {label}
       </div>
 
-      <pre className="max-h-64 overflow-auto rounded-xl border border-white/[0.07] bg-black/30 p-3 text-xs leading-5 text-slate-400">
+      <pre className="max-h-64 overflow-auto rounded-xl border border-line bg-canvas p-3 text-xs leading-5 text-ink-2">
         {value === undefined || value === null
           ? "—"
           : JSON.stringify(value, null, 2)}
@@ -78,56 +82,44 @@ export default async function ReplayLabPage({
   ];
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 flex flex-wrap items-center gap-4 text-sm">
-          <Link
-            href={`/events/${event.id}`}
-            className="text-slate-500 transition hover:text-slate-200"
-          >
-            ← Event
-          </Link>
-
-          {event.executionId && (
-            <Link
-              href={`/executions/${event.executionId}`}
-              className="text-slate-500 transition hover:text-slate-200"
-            >
-              Original execution
-            </Link>
-          )}
-        </div>
-
-        <div className="mb-8">
-          <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs uppercase tracking-wider text-blue-300">
-            Replay Lab
-          </span>
-
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            {event.title}
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Branch this captured request into experiments. The original stays
-            exactly as captured; every experiment is stored with its mutations
-            and the execution it produced.
-          </p>
-        </div>
+    <>
+      <PageHeader
+        crumbs={[
+          ...(event.executionId
+            ? [
+                { label: "Executions", href: "/executions" },
+                {
+                  label: shortId(event.executionId),
+                  href: `/executions/${event.executionId}`,
+                },
+              ]
+            : [{ label: "Events", href: "/events" }]),
+          { label: "Replay Lab" },
+        ]}
+        badges={<Badge tone="accent">replay lab</Badge>}
+        title={event.title}
+        description="Branch this captured request into experiments. The original stays exactly as captured; every experiment is stored with its mutations and the execution it produced."
+        actions={
+          <ButtonLink href={`/events/${event.id}`} variant="ghost">
+            Original event
+          </ButtonLink>
+        }
+      />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
+          <section className="rounded-2xl border border-line bg-panel p-5">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
                 Original
               </div>
 
-              <span className="rounded bg-white/[0.05] px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+              <span className="rounded bg-raised px-2 py-0.5 text-xs uppercase tracking-wider text-muted">
                 immutable
               </span>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm text-slate-200">
+              <span className="font-mono text-sm text-ink">
                 {metadata?.method ?? "POST"} {metadata?.path ?? "—"}
               </span>
 
@@ -148,12 +140,12 @@ export default async function ReplayLabPage({
               <Block label="Headers (redacted)" value={metadata?.headers} />
 
               <div>
-                <div className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-600">
+                <div className="mb-1.5 text-xs uppercase tracking-wider text-faint">
                   Recorded dependencies
                 </div>
 
                 {dependencyEvents.length === 0 ? (
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-faint">
                     None recorded. Use rewindFetch in the application to record
                     outgoing calls.
                   </p>
@@ -169,7 +161,7 @@ export default async function ReplayLabPage({
                       return (
                         <li
                           key={dependency.id}
-                          className="flex items-center gap-2 font-mono text-[11px] text-slate-400"
+                          className="flex items-center gap-2 font-mono text-xs text-ink-2"
                         >
                           <span
                             className={`rounded px-1.5 ${statusClass(
@@ -194,24 +186,24 @@ export default async function ReplayLabPage({
           />
         </div>
 
-        <section className="mt-8 overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d1320]">
-          <div className="border-b border-white/[0.06] px-5 py-4">
-            <h2 className="text-sm font-medium text-slate-200">Experiments</h2>
+        <section className="mt-8 overflow-hidden rounded-2xl border border-line bg-panel">
+          <div className="border-b border-line px-5 py-4">
+            <h2 className="text-sm font-medium text-ink">Experiments</h2>
 
-            <p className="mt-0.5 text-xs text-slate-600">
+            <p className="mt-0.5 text-xs text-faint">
               Every replay of this request, newest first.
             </p>
           </div>
 
           {experiments.length === 0 ? (
-            <p className="px-5 py-8 text-center text-xs text-slate-600">
+            <p className="px-5 py-8 text-center text-xs text-faint">
               No experiments yet.
             </p>
           ) : (
             experiments.map((experiment) => (
               <div
                 key={experiment.id}
-                className="flex flex-col gap-3 border-b border-white/[0.05] px-5 py-4 last:border-0 md:flex-row md:items-center"
+                className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-0 md:flex-row md:items-center"
               >
                 <span
                   className={`w-12 shrink-0 rounded px-2 py-0.5 text-center font-mono text-xs ${statusClass(
@@ -222,7 +214,7 @@ export default async function ReplayLabPage({
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-slate-200">
+                  <div className="truncate text-sm text-ink">
                     {experiment.label ??
                       (experiment.mutations.length === 0
                         ? "Plain replay"
@@ -231,14 +223,14 @@ export default async function ReplayLabPage({
 
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {experiment.mutations.length === 0 ? (
-                      <span className="text-[11px] text-slate-600">
+                      <span className="text-xs text-faint">
                         no mutations
                       </span>
                     ) : (
                       experiment.mutations.map((mutation, index) => (
                         <code
                           key={index}
-                          className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[11px] text-blue-200"
+                          className="rounded bg-accent-soft px-1.5 py-0.5 text-xs text-accent"
                         >
                           {describeMutation(mutation)}
                         </code>
@@ -250,28 +242,28 @@ export default async function ReplayLabPage({
                 <div className="flex shrink-0 items-center gap-4 text-xs">
                   {experiment.dependencyMode && (
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${
+                      className={`rounded px-1.5 py-0.5 text-xs uppercase tracking-wider ${
                         experiment.dependencyMode === "live"
-                          ? "bg-amber-500/10 text-amber-300"
-                          : "bg-white/[0.05] text-slate-500"
+                          ? "bg-warning-soft text-warning"
+                          : "bg-raised text-muted"
                       }`}
                     >
                       deps {experiment.dependencyMode}
                     </span>
                   )}
 
-                  <span className="font-mono text-slate-600">
+                  <span className="font-mono text-faint">
                     {experiment.duration}
                   </span>
 
-                  <span className="text-slate-600">
+                  <span className="text-faint">
                     {formatDateTime(experiment.createdAt)}
                   </span>
 
                   {experiment.resultExecutionId && (
                     <Link
                       href={`/executions/${experiment.resultExecutionId}`}
-                      className="text-blue-300 hover:text-blue-200"
+                      className="text-accent hover:text-accent"
                     >
                       Execution
                     </Link>
@@ -281,7 +273,7 @@ export default async function ReplayLabPage({
                     experiment.sourceExecutionId && (
                       <Link
                         href={`/executions/compare?original=${experiment.sourceExecutionId}&candidate=${experiment.resultExecutionId}`}
-                        className="text-blue-300 hover:text-blue-200"
+                        className="text-accent hover:text-accent"
                       >
                         Diff
                       </Link>
@@ -289,7 +281,7 @@ export default async function ReplayLabPage({
 
                   <Link
                     href={`/replays/${experiment.id}`}
-                    className="text-slate-400 hover:text-slate-200"
+                    className="text-ink-2 hover:text-ink"
                   >
                     Compare
                   </Link>
@@ -298,7 +290,6 @@ export default async function ReplayLabPage({
             ))
           )}
         </section>
-      </div>
-    </main>
+      </>
   );
 }

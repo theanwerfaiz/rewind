@@ -4,6 +4,10 @@ import { connection } from "next/server";
 
 import { getExecutionsByFingerprint } from "@/lib/executions";
 import { getFingerprintById } from "@/lib/fingerprints";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Badge } from "@/components/ui/StatusBadge";
+import { IdChip } from "@/components/ui/IdChip";
+import { shortId } from "@/lib/format";
 
 function formatDateTime(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -11,12 +15,12 @@ function formatDateTime(timestamp: string) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-white/5 pb-3 last:border-0 last:pb-0">
-      <span className="text-xs uppercase tracking-wider text-slate-500">
+    <div className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0">
+      <span className="text-xs uppercase tracking-wider text-muted">
         {label}
       </span>
 
-      <span className="break-all font-mono text-sm text-slate-200">
+      <span className="break-all font-mono text-sm text-ink">
         {value}
       </span>
     </div>
@@ -43,41 +47,28 @@ export default async function FingerprintPage({
   const { signature } = fingerprint;
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <Link
-            href="/fingerprints"
-            className="text-sm text-slate-500 transition hover:text-slate-200"
-          >
-            ← All failures
-          </Link>
-        </div>
-
-        <div className="mb-8">
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-wider text-red-300">
-              Failure fingerprint
-            </span>
-
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-400">
+    <>
+      <PageHeader
+        crumbs={[
+          { label: "Failures", href: "/fingerprints" },
+          { label: shortId(fingerprint.id) },
+        ]}
+        badges={
+          <>
+            <Badge tone="failure">failure fingerprint</Badge>
+            <Badge>
               {fingerprint.count}{" "}
               {fingerprint.count === 1 ? "occurrence" : "occurrences"}
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {signature.message}
-          </h1>
-
-          <p className="mt-2 font-mono text-xs text-slate-500">
-            {fingerprint.id}
-          </p>
-        </div>
+            </Badge>
+          </>
+        }
+        title={signature.message}
+        meta={<IdChip id={fingerprint.id} full />}
+      />
 
         <div className="mb-8 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
-            <h2 className="mb-5 text-sm font-medium text-slate-200">
+          <section className="rounded-2xl border border-line bg-panel p-6">
+            <h2 className="mb-5 text-sm font-medium text-ink">
               Signature
             </h2>
 
@@ -97,8 +88,8 @@ export default async function FingerprintPage({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-6">
-            <h2 className="mb-5 text-sm font-medium text-slate-200">History</h2>
+          <section className="rounded-2xl border border-line bg-panel p-6">
+            <h2 className="mb-5 text-sm font-medium text-ink">History</h2>
 
             <div className="space-y-4">
               <Row
@@ -119,8 +110,8 @@ export default async function FingerprintPage({
           </section>
         </div>
 
-        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d1320]">
-          <h2 className="border-b border-white/[0.06] px-5 py-4 text-sm font-medium text-slate-200">
+        <section className="overflow-hidden rounded-2xl border border-line bg-panel">
+          <h2 className="border-b border-line px-5 py-4 text-sm font-medium text-ink">
             Executions that failed this way
           </h2>
 
@@ -128,27 +119,26 @@ export default async function FingerprintPage({
             <Link
               key={execution.id}
               href={`/executions/${execution.id}`}
-              className="group flex items-center gap-4 border-b border-white/[0.05] px-5 py-3.5 transition last:border-0 hover:bg-white/[0.03]"
+              className="group flex items-center gap-4 border-b border-line px-5 py-3.5 transition last:border-0 hover:bg-panel"
             >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-red-400" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-failure" />
 
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-slate-200 group-hover:text-white">
+                <div className="truncate text-sm text-ink group-hover:text-ink">
                   {execution.rootTitle ?? "Untitled execution"}
                 </div>
 
-                <div className="mt-0.5 truncate font-mono text-[11px] text-slate-600">
+                <div className="mt-0.5 truncate font-mono text-xs text-faint">
                   {execution.id}
                 </div>
               </div>
 
-              <span className="shrink-0 text-xs text-slate-600">
+              <span className="shrink-0 text-xs text-faint">
                 {formatDateTime(execution.startedAt)}
               </span>
             </Link>
           ))}
         </section>
-      </div>
-    </main>
+      </>
   );
 }

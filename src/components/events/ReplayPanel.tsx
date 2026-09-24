@@ -129,7 +129,7 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
     result !== null && result.status >= 200 && result.status < 300;
 
   return (
-    <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="mt-6 rounded-2xl border border-line bg-panel p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -138,13 +138,13 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
             </h2>
 
             {isWebhook && (
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-wider text-slate-500">
+              <span className="rounded-full border border-line bg-raised px-2.5 py-1 text-xs uppercase tracking-wider text-muted">
                 Webhook
               </span>
             )}
           </div>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             {isWebhook
               ? "Edit the captured webhook payload and send it back to your local application."
               : "Edit the captured payload and replay this request against your local application."}
@@ -156,7 +156,7 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
             type="button"
             onClick={handleReset}
             disabled={loading}
-            className="flex h-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-300 transition hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 items-center justify-center rounded-lg border border-line bg-panel px-4 text-sm font-medium text-ink-2 transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Reset
           </button>
@@ -165,7 +165,7 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
             type="button"
             onClick={handleReplay}
             disabled={loading}
-            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -184,37 +184,37 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
 
       <div className="mt-6">
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-xs uppercase tracking-wider text-slate-500">
+          <div className="text-xs uppercase tracking-wider text-muted">
             {isWebhook ? "Webhook Payload" : "Request Payload"}
           </div>
 
-          <div className="text-[11px] text-slate-600">JSON</div>
+          <div className="text-xs text-faint">JSON</div>
         </div>
 
         <textarea
           value={payloadText}
           onChange={(event) => setPayloadText(event.target.value)}
           spellCheck={false}
-          className="min-h-52 w-full resize-y rounded-xl border border-white/10 bg-black/30 p-4 font-mono text-sm leading-6 text-slate-300 outline-none transition placeholder:text-slate-700 focus:border-white/20"
+          className="min-h-52 w-full resize-y rounded-xl border border-line bg-canvas p-4 font-mono text-sm leading-6 text-ink-2 outline-none transition placeholder:text-faint focus:border-line-strong"
           placeholder={`{
   "event": "example",
   "value": 123
 }`}
         />
 
-        <p className="mt-2 text-xs text-slate-600">
+        <p className="mt-2 text-xs text-faint">
           Change the JSON above before replaying. The original captured event
           will not be modified.
         </p>
       </div>
 
       {error && (
-        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-red-400">
+        <div className="mt-5 rounded-xl border border-failure/20 bg-failure-soft p-4">
+          <div className="text-xs font-medium uppercase tracking-wider text-failure">
             Replay failed
           </div>
 
-          <p className="mt-2 break-words text-sm text-red-300">{error}</p>
+          <p className="mt-2 break-words text-sm text-failure">{error}</p>
         </div>
       )}
 
@@ -223,13 +223,13 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
           <div
             className={`rounded-xl border p-4 ${
               resultIsSuccess
-                ? "border-emerald-500/20 bg-emerald-500/5"
-                : "border-red-500/20 bg-red-500/5"
+                ? "border-success/20 bg-success-soft"
+                : "border-failure/20 bg-failure-soft"
             }`}
           >
             <div
               className={`text-xs font-medium uppercase tracking-wider ${
-                resultIsSuccess ? "text-emerald-400" : "text-red-400"
+                resultIsSuccess ? "text-success" : "text-failure"
               }`}
             >
               {resultIsSuccess
@@ -237,7 +237,7 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
                 : "Replay completed with error"}
             </div>
 
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-ink-2">
               The local application returned HTTP {result.status}.
             </p>
           </div>
@@ -259,11 +259,11 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
           </div>
 
           <div>
-            <div className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+            <div className="mb-2 text-xs uppercase tracking-wider text-muted">
               Response
             </div>
 
-            <pre className="max-h-96 overflow-auto rounded-xl border border-white/10 bg-black/30 p-4 text-sm leading-6 text-slate-300">
+            <pre className="max-h-96 overflow-auto rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-ink-2">
               {JSON.stringify(result.body, null, 2)}
             </pre>
           </div>
@@ -275,12 +275,12 @@ export function ReplayPanel({ eventId, eventType, payload }: ReplayPanelProps) {
 
 function ResultCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-black/20 p-4">
-      <div className="text-[10px] uppercase tracking-wider text-slate-600">
+    <div className="rounded-xl border border-line bg-canvas p-4">
+      <div className="text-xs uppercase tracking-wider text-faint">
         {label}
       </div>
 
-      <div className="mt-2 break-all font-mono text-sm text-slate-300">
+      <div className="mt-2 break-all font-mono text-sm text-ink-2">
         {value}
       </div>
     </div>

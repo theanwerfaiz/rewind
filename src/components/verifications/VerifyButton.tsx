@@ -53,13 +53,13 @@ export function VerifyButton() {
         type="button"
         onClick={verify}
         disabled={running}
-        className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {running ? "Verifying…" : "▶ Verify all recorded failures"}
       </button>
 
       {error && (
-        <p className="max-w-sm text-right text-xs text-red-300">{error}</p>
+        <p className="max-w-sm text-right text-xs text-failure">{error}</p>
       )}
     </div>
   );

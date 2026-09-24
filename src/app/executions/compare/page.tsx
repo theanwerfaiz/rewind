@@ -9,6 +9,9 @@ import type {
   EventChangeKind,
 } from "@/lib/execution-diff";
 import type { RewindEvent } from "@/lib/mock-events";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { IdChip } from "@/components/ui/IdChip";
+import { shortId } from "@/lib/format";
 
 const OUTCOMES: Record<
   DiffOutcome,
@@ -21,32 +24,32 @@ const OUTCOMES: Record<
   fixed: {
     title: "Fixed",
     detail: "The original failed; this execution succeeded.",
-    className: "border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200",
+    className: "border-success/30 bg-success-soft text-success",
   },
   regressed: {
     title: "Regressed",
     detail: "The original succeeded; this execution failed.",
-    className: "border-red-500/30 bg-red-500/[0.06] text-red-200",
+    className: "border-failure/30 bg-failure-soft text-failure",
   },
   still_failing: {
     title: "Still failing",
     detail: "Both executions failed the same way (same fingerprint).",
-    className: "border-red-500/30 bg-red-500/[0.06] text-red-200",
+    className: "border-failure/30 bg-failure-soft text-failure",
   },
   different_failure: {
     title: "Different failure",
     detail: "Both executions failed, but not the same way.",
-    className: "border-amber-500/30 bg-amber-500/[0.06] text-amber-200",
+    className: "border-warning/30 bg-warning-soft text-warning",
   },
   behavior_changed: {
     title: "Behaviour changed",
     detail: "Both executions succeeded, but took a different path.",
-    className: "border-blue-500/30 bg-blue-500/[0.06] text-blue-200",
+    className: "border-accent/30 bg-accent-soft text-accent",
   },
   unchanged: {
     title: "Unchanged",
     detail: "Same events, statuses and responses.",
-    className: "border-white/10 bg-white/[0.03] text-slate-200",
+    className: "border-line bg-panel text-ink",
   },
 };
 
@@ -89,48 +92,48 @@ function SideCard({
   return (
     <Link
       href={`/executions/${side.executionId}`}
-      className="block rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5 transition hover:border-white/[0.15]"
+      className="block rounded-2xl border border-line bg-panel p-5 transition hover:border-line-strong"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
           {label}
         </span>
 
         <span
           className={`rounded px-2 py-0.5 text-xs uppercase ${
             side.status === "error"
-              ? "bg-red-500/10 text-red-300"
-              : "bg-emerald-500/10 text-emerald-300"
+              ? "bg-failure-soft text-failure"
+              : "bg-success-soft text-success"
           }`}
         >
           {side.status}
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-3 font-mono text-sm text-slate-200">
+      <div className="mt-4 grid grid-cols-3 gap-3 font-mono text-sm text-ink">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="text-xs uppercase tracking-wider text-faint">
             HTTP
           </div>
           {side.httpStatus ?? "—"}
         </div>
 
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="text-xs uppercase tracking-wider text-faint">
             Duration
           </div>
           {formatMs(side.durationMs)}
         </div>
 
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="text-xs uppercase tracking-wider text-faint">
             Events
           </div>
           {side.eventCount}
         </div>
       </div>
 
-      <div className="mt-4 truncate font-mono text-[11px] text-slate-600">
+      <div className="mt-4 truncate font-mono text-xs text-faint">
         {side.executionId}
       </div>
     </Link>
@@ -151,9 +154,9 @@ function EventList({
   }
 
   return (
-    <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-      <h2 className="text-sm font-medium text-slate-200">
-        {title} <span className="text-slate-600">({events.length})</span>
+    <section className="rounded-2xl border border-line bg-panel p-5">
+      <h2 className="text-sm font-medium text-ink">
+        {title} <span className="text-faint">({events.length})</span>
       </h2>
 
       <ul className="mt-3 space-y-1.5">
@@ -161,24 +164,24 @@ function EventList({
           <li key={event.id}>
             <Link
               href={`/events/${event.id}`}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-white/[0.03]"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-panel"
             >
               <span
                 className={`font-mono ${
-                  tone === "added" ? "text-emerald-400" : "text-red-400"
+                  tone === "added" ? "text-success" : "text-failure"
                 }`}
               >
                 {tone === "added" ? "+" : "−"}
               </span>
 
-              <span className="truncate text-slate-200">{event.title}</span>
+              <span className="truncate text-ink">{event.title}</span>
 
-              <span className="shrink-0 text-xs text-slate-600">
+              <span className="shrink-0 text-xs text-faint">
                 {event.type}
               </span>
 
               {event.status === "error" && (
-                <span className="shrink-0 rounded bg-red-500/10 px-1.5 text-[10px] text-red-300">
+                <span className="shrink-0 rounded bg-failure-soft px-1.5 text-xs text-failure">
                   error
                 </span>
               )}
@@ -194,11 +197,11 @@ function ChangedEvent({ change }: { change: EventChange }) {
   const fieldChanges = [...change.payloadChanges, ...change.responseChanges];
 
   return (
-    <li className="rounded-xl border border-white/[0.06] bg-black/10 p-4">
+    <li className="rounded-xl border border-line bg-canvas p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/events/${change.candidate.id}`}
-          className="text-sm text-slate-200 hover:text-white"
+          className="text-sm text-ink hover:text-ink"
         >
           {change.candidate.title}
         </Link>
@@ -206,14 +209,14 @@ function ChangedEvent({ change }: { change: EventChange }) {
         {change.kinds.map((kind) => (
           <span
             key={kind}
-            className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-blue-200"
+            className="rounded bg-accent-soft px-1.5 py-0.5 text-xs uppercase tracking-wider text-accent"
           >
             {KIND_LABELS[kind]}
           </span>
         ))}
       </div>
 
-      <dl className="mt-3 space-y-1 font-mono text-xs text-slate-400">
+      <dl className="mt-3 space-y-1 font-mono text-xs text-ink-2">
         {change.status && (
           <div>
             status: {change.status.from} → {change.status.to}
@@ -241,7 +244,7 @@ function ChangedEvent({ change }: { change: EventChange }) {
         ))}
 
         {fieldChanges.length > 12 && (
-          <div className="text-slate-600">
+          <div className="text-faint">
             +{fieldChanges.length - 12} more fields
           </div>
         )}
@@ -272,27 +275,27 @@ export default async function CompareExecutionsPage({
   const outcome = OUTCOMES[diff.outcome];
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8 flex flex-wrap items-center gap-4 text-sm">
-          <Link
-            href={`/executions/${original}`}
-            className="text-slate-500 transition hover:text-slate-200"
-          >
-            ← Original execution
-          </Link>
-        </div>
-
-        <div className="mb-6">
-          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-wider text-slate-400">
-            Execution diff
-          </span>
-        </div>
+    <>
+      <PageHeader
+        crumbs={[
+          { label: "Executions", href: "/executions" },
+          { label: shortId(original), href: `/executions/${original}` },
+          { label: "Compare" },
+        ]}
+        title="Execution diff"
+        meta={
+          <>
+            <IdChip id={original} />
+            <span className="text-faint">vs</span>
+            <IdChip id={candidate} />
+          </>
+        }
+      />
 
         <section className={`mb-6 rounded-2xl border p-6 ${outcome.className}`}>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h2 className="text-2xl font-semibold tracking-tight">
             {outcome.title}
-          </h1>
+          </h2>
 
           <p className="mt-1 text-sm opacity-80">{outcome.detail}</p>
 
@@ -305,7 +308,7 @@ export default async function CompareExecutionsPage({
               into the run:{" "}
               <Link
                 href={`/events/${diff.firstDivergence.event.id}`}
-                className="underline decoration-white/30 underline-offset-4 hover:decoration-white"
+                className="underline decoration-current/40 underline-offset-4 hover:decoration-current"
               >
                 {diff.firstDivergence.kind} {diff.firstDivergence.event.title}
               </Link>
@@ -319,19 +322,19 @@ export default async function CompareExecutionsPage({
         </div>
 
         {diff.summary.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <h2 className="text-sm font-medium text-slate-200">What changed</h2>
+          <section className="mb-6 rounded-2xl border border-line bg-panel p-5">
+            <h2 className="text-sm font-medium text-ink">What changed</h2>
 
-            <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
+            <ul className="mt-3 space-y-1.5 text-sm text-ink-2">
               {diff.summary.map((line) => (
                 <li key={line} className="flex gap-2">
-                  <span className="text-slate-600">•</span>
+                  <span className="text-faint">•</span>
                   {line}
                 </li>
               ))}
             </ul>
 
-            <p className="mt-4 text-xs text-slate-600">
+            <p className="mt-4 text-xs text-faint">
               {diff.unchangedCount}{" "}
               {diff.unchangedCount === 1 ? "event" : "events"} behaved
               identically.
@@ -340,12 +343,12 @@ export default async function CompareExecutionsPage({
         )}
 
         {diff.invariants && diff.invariants.length > 0 && (
-          <section className="mb-6 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <h2 className="text-sm font-medium text-slate-200">Invariants</h2>
+          <section className="mb-6 rounded-2xl border border-line bg-panel p-5">
+            <h2 className="text-sm font-medium text-ink">Invariants</h2>
 
             <table className="mt-3 w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-slate-600">
+                <tr className="text-left text-xs uppercase tracking-wider text-faint">
                   <th className="pb-2 font-normal">Expected</th>
                   <th className="pb-2 font-normal">Original</th>
                   <th className="pb-2 font-normal">Candidate</th>
@@ -356,9 +359,9 @@ export default async function CompareExecutionsPage({
                 {diff.invariants.map((comparison) => (
                   <tr
                     key={comparison.invariant.id}
-                    className="border-t border-white/[0.05]"
+                    className="border-t border-line"
                   >
-                    <td className="py-2 pr-4 text-slate-200">
+                    <td className="py-2 pr-4 text-ink">
                       {comparison.description}
                     </td>
 
@@ -367,11 +370,11 @@ export default async function CompareExecutionsPage({
                         <td
                           key={index}
                           className={`py-2 pr-4 font-mono text-xs ${
-                            result.passed ? "text-emerald-400" : "text-red-400"
+                            result.passed ? "text-success" : "text-failure"
                           }`}
                         >
                           {result.passed ? "holds" : "fails"}{" "}
-                          <span className="text-slate-600">
+                          <span className="text-faint">
                             ({result.actual})
                           </span>
                         </td>
@@ -395,10 +398,10 @@ export default async function CompareExecutionsPage({
         </div>
 
         {diff.changed.length > 0 && (
-          <section className="mt-6 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <h2 className="text-sm font-medium text-slate-200">
+          <section className="mt-6 rounded-2xl border border-line bg-panel p-5">
+            <h2 className="text-sm font-medium text-ink">
               Changed events{" "}
-              <span className="text-slate-600">({diff.changed.length})</span>
+              <span className="text-faint">({diff.changed.length})</span>
             </h2>
 
             <ul className="mt-3 space-y-3">
@@ -408,7 +411,6 @@ export default async function CompareExecutionsPage({
             </ul>
           </section>
         )}
-      </div>
-    </main>
+      </>
   );
 }

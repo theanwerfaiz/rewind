@@ -104,7 +104,7 @@ function toMutation(row: Row) {
 }
 
 const inputClass =
-  "h-9 min-w-0 rounded-lg border border-white/10 bg-black/30 px-2.5 font-mono text-xs text-slate-200 outline-none transition placeholder:text-slate-700 focus:border-white/25";
+  "h-9 min-w-0 rounded-lg border border-line bg-canvas px-2.5 font-mono text-xs text-ink outline-none transition placeholder:text-faint focus:border-accent";
 
 export function ExperimentBuilder({
   eventId,
@@ -184,12 +184,12 @@ export function ExperimentBuilder({
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <section className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.03] p-5">
-        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">
+      <section className="rounded-2xl border border-accent/20 bg-accent-soft p-5">
+        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
           Experiment
         </div>
 
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-muted">
           Change one variable at a time. Mutations are stored with the
           experiment so it can be run again.
         </p>
@@ -206,7 +206,7 @@ export function ExperimentBuilder({
           {rows.map((row) => (
             <div
               key={row.key}
-              className="space-y-2 rounded-xl border border-white/[0.06] bg-black/10 p-2"
+              className="space-y-2 rounded-xl border border-line bg-canvas p-2"
             >
               <div className="flex items-center gap-2">
                 <select
@@ -253,7 +253,7 @@ export function ExperimentBuilder({
                         : current.filter((item) => item.key !== row.key),
                     )
                   }
-                  className="h-9 w-9 shrink-0 rounded-lg border border-white/10 text-slate-500 transition hover:text-slate-200"
+                  className="h-9 w-9 shrink-0 rounded-lg border border-line text-muted transition hover:text-ink"
                 >
                   ×
                 </button>
@@ -300,7 +300,7 @@ export function ExperimentBuilder({
 
                 {row.op === "set" && (
                   <>
-                    <span className="text-xs text-slate-600">=</span>
+                    <span className="text-xs text-faint">=</span>
 
                     <input
                       aria-label="Value"
@@ -326,7 +326,7 @@ export function ExperimentBuilder({
           ))}
         </div>
 
-        <label className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+        <label className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink-2">
           Dependencies
           <select
             aria-label="Dependency mode"
@@ -343,7 +343,7 @@ export function ExperimentBuilder({
         </label>
 
         {dependencyMode === "live" && (
-          <p className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200">
+          <p className="mt-2 rounded-lg border border-warning/20 bg-warning-soft px-3 py-2 text-xs text-warning">
             Live mode sends dependency calls to the real services. Payments,
             emails and other side effects will happen again.
           </p>
@@ -353,7 +353,7 @@ export function ExperimentBuilder({
           <button
             type="button"
             onClick={() => setRows((current) => [...current, emptyRow()])}
-            className="text-xs text-slate-400 transition hover:text-slate-200"
+            className="text-xs text-ink-2 transition hover:text-ink"
           >
             + Add mutation
           </button>
@@ -362,32 +362,32 @@ export function ExperimentBuilder({
             type="button"
             onClick={run}
             disabled={running}
-            className="flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-black transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running ? "Running…" : "↻ Run experiment"}
           </button>
         </div>
 
-        <p className="mt-3 text-[11px] text-slate-600">
+        <p className="mt-3 text-xs text-faint">
           Payload values are parsed as JSON (<code>0</code>, <code>true</code>,{" "}
           <code>{"{}"}</code>); anything else is sent as text. With no
           mutations, this is a plain replay.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <section className="rounded-2xl border border-line bg-panel p-5">
+        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
           Result
         </div>
 
         {!result && !error && (
-          <p className="mt-6 text-sm text-slate-600">
+          <p className="mt-6 text-sm text-faint">
             Run an experiment to see how the application behaves.
           </p>
         )}
 
         {error && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300">
+          <div className="mt-4 rounded-xl border border-failure/20 bg-failure-soft p-4 text-sm text-failure">
             {error}
           </div>
         )}
@@ -398,14 +398,14 @@ export function ExperimentBuilder({
               <span
                 className={`rounded-lg px-2.5 py-1 font-mono text-sm ${
                   resultOk
-                    ? "bg-emerald-500/10 text-emerald-300"
-                    : "bg-red-500/10 text-red-300"
+                    ? "bg-success-soft text-success"
+                    : "bg-failure-soft text-failure"
                 }`}
               >
                 {result.status} {result.statusText}
               </span>
 
-              <span className="font-mono text-xs text-slate-500">
+              <span className="font-mono text-xs text-muted">
                 {result.duration}
               </span>
             </div>
@@ -414,12 +414,12 @@ export function ExperimentBuilder({
               {result.resultExecutionId ? (
                 <Link
                   href={`/executions/${result.resultExecutionId}`}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-accent hover:text-accent"
                 >
                   Resulting execution →
                 </Link>
               ) : (
-                <span className="text-slate-600">
+                <span className="text-faint">
                   The target did not capture an execution.
                 </span>
               )}
@@ -427,7 +427,7 @@ export function ExperimentBuilder({
               {result.resultExecutionId && result.sourceExecutionId && (
                 <Link
                   href={`/executions/compare?original=${result.sourceExecutionId}&candidate=${result.resultExecutionId}`}
-                  className="text-blue-300 hover:text-blue-200"
+                  className="text-accent hover:text-accent"
                 >
                   Diff executions →
                 </Link>
@@ -435,13 +435,13 @@ export function ExperimentBuilder({
 
               <Link
                 href={`/replays/${result.id}`}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-ink-2 hover:text-ink"
               >
                 Compare responses →
               </Link>
             </div>
 
-            <pre className="max-h-80 overflow-auto rounded-xl border border-white/10 bg-black/30 p-4 text-xs leading-5 text-slate-300">
+            <pre className="max-h-80 overflow-auto rounded-xl border border-line bg-canvas p-4 text-xs leading-5 text-ink-2">
               {JSON.stringify(result.body, null, 2)}
             </pre>
           </div>

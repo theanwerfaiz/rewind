@@ -67,7 +67,7 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
 
   return (
     <div>
-      <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="mb-4 rounded-xl border border-line bg-panel p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="min-w-0 flex-1">
             <input
@@ -75,7 +75,8 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search events, types, sources, request IDs..."
-              className="h-10 w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 text-sm text-slate-200 outline-none placeholder:text-slate-600 focus:border-white/20"
+              className="h-9 w-full rounded-lg border border-line bg-canvas px-3 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
+              aria-label="Search events"
             />
           </div>
 
@@ -85,7 +86,8 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
               onChange={(event) =>
                 setType(event.target.value as EventType | "all")
               }
-              className="h-10 rounded-lg border border-white/[0.08] bg-[#0d1320] px-3 text-xs text-slate-400 outline-none focus:border-white/20"
+              className="h-9 rounded-lg border border-line bg-canvas px-3 text-sm text-ink-2 outline-none focus:border-accent"
+              aria-label="Event type"
             >
               <option value="all">All event types</option>
 
@@ -100,7 +102,7 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="h-10 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 text-xs text-slate-400 transition hover:bg-white/[0.05] hover:text-white"
+                className="h-9 rounded-lg border border-line bg-raised px-3 text-sm text-ink-2 transition hover:bg-hover hover:text-ink"
               >
                 Clear
               </button>
@@ -108,7 +110,7 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-[11px] text-slate-600">
+        <div className="mt-2 flex items-center justify-between px-1 text-xs text-muted">
           <span>
             {filteredEvents.length} of {events.length} events
           </span>

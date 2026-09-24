@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { connection } from "next/server";
 
 import db from "@/lib/db";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type ReplayRow = {
   id: string;
@@ -20,17 +22,20 @@ function formatDate(timestamp: string) {
 
 function statusClass(status: number) {
   if (status >= 200 && status < 300) {
-    return "bg-emerald-500/10 text-emerald-400";
+    return "bg-success-soft text-success";
   }
 
   if (status >= 400) {
-    return "bg-red-500/10 text-red-400";
+    return "bg-failure-soft text-failure";
   }
 
-  return "bg-white/10 text-slate-400";
+  return "bg-hover text-ink-2";
 }
 
-export default function ReplaysPage() {
+export default async function ReplaysPage() {
+  // Read at request time; otherwise the list is frozen at build time.
+  await connection();
+
   const rows = db
     .prepare(
       `
@@ -52,41 +57,27 @@ export default function ReplaysPage() {
     .all() as ReplayRow[];
 
   return (
-    <main className="min-h-screen bg-[#08090b] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← Back to events
-          </Link>
-
-          <div className="mt-5">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Replay History
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Every replay attempt recorded by Rewind.
-            </p>
-          </div>
-        </div>
+    <>
+      <PageHeader
+        crumbs={[{ label: "Raw data" }, { label: "Replays" }]}
+        title="Replays"
+        description="Every replay and experiment Rewind has run, newest first."
+      />
 
         {rows.length === 0 ? (
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center">
+          <section className="rounded-2xl border border-line bg-panel p-10 text-center">
             <h2 className="text-lg font-medium">No replays yet</h2>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-muted">
               Replay an HTTP request or webhook to see its history here.
             </p>
           </section>
         ) : (
-          <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          <section className="overflow-hidden rounded-2xl border border-line bg-panel">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px]">
-                <thead className="border-b border-white/10 bg-white/[0.02]">
-                  <tr className="text-left text-xs uppercase tracking-wider text-slate-500">
+                <thead className="border-b border-line bg-panel">
+                  <tr className="text-left text-xs uppercase tracking-wider text-muted">
                     <th className="px-5 py-4">Time</th>
 
                     <th className="px-5 py-4">Method</th>
@@ -105,12 +96,12 @@ export default function ReplaysPage() {
                   {rows.map((replay) => (
                     <tr
                       key={replay.id}
-                      className="transition hover:bg-white/[0.03]"
+                      className="transition hover:bg-panel"
                     >
-                      <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-400">
+                      <td className="whitespace-nowrap px-5 py-4 text-sm text-ink-2">
                         <Link
                           href={`/replays/${replay.id}`}
-                          className="transition hover:text-white"
+                          className="transition hover:text-ink"
                         >
                           {formatDate(replay.timestamp)}
                         </Link>
@@ -118,7 +109,7 @@ export default function ReplaysPage() {
 
                       <td className="px-5 py-4">
                         <Link href={`/replays/${replay.id}`}>
-                          <span className="rounded-md border border-white/10 bg-black/20 px-2 py-1 font-mono text-xs text-slate-300">
+                          <span className="rounded-md border border-line bg-canvas px-2 py-1 font-mono text-xs text-ink-2">
                             {replay.method}
                           </span>
                         </Link>
@@ -127,7 +118,7 @@ export default function ReplaysPage() {
                       <td className="max-w-md px-5 py-4">
                         <Link
                           href={`/replays/${replay.id}`}
-                          className="block truncate font-mono text-sm text-slate-300 transition hover:text-white"
+                          className="block truncate font-mono text-sm text-ink-2 transition hover:text-ink"
                         >
                           {replay.url}
                         </Link>
@@ -145,10 +136,10 @@ export default function ReplaysPage() {
                         </Link>
                       </td>
 
-                      <td className="px-5 py-4 font-mono text-sm text-slate-400">
+                      <td className="px-5 py-4 font-mono text-sm text-ink-2">
                         <Link
                           href={`/replays/${replay.id}`}
-                          className="transition hover:text-white"
+                          className="transition hover:text-ink"
                         >
                           {replay.duration}
                         </Link>
@@ -157,7 +148,7 @@ export default function ReplaysPage() {
                       <td className="px-5 py-4">
                         <Link
                           href={`/events/${replay.event_id}`}
-                          className="font-mono text-xs text-slate-400 transition hover:text-white"
+                          className="font-mono text-xs text-ink-2 transition hover:text-ink"
                         >
                           {replay.event_id}
                         </Link>
@@ -170,11 +161,10 @@ export default function ReplaysPage() {
           </section>
         )}
 
-        <div className="mt-4 text-xs text-slate-600">
+        <div className="mt-4 text-xs text-faint">
           Showing {rows.length} replay
           {rows.length === 1 ? "" : "s"}.
         </div>
-      </div>
-    </main>
+      </>
   );
 }

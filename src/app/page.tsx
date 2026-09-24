@@ -1,160 +1,271 @@
-import { Activity, Clock3, Webhook } from "lucide-react";
+import { CheckCircle2, Radio } from "lucide-react";
+import Link from "next/link";
+import { connection } from "next/server";
 
-import { EventsExplorer } from "@/components/dashboard/EventsExplorer";
-import { Header } from "@/components/dashboard/Header";
-import { Sidebar } from "@/components/dashboard/Sidebar";
-import { StatCard } from "@/components/dashboard/StatCard";
+import { ExecutionsChart } from "@/components/overview/ExecutionsChart";
+import { EventIcon } from "@/components/ui/EventIcon";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState, Panel, Stat } from "@/components/ui/primitives";
+import { Badge, StatusDot } from "@/components/ui/StatusBadge";
+import { formatRelative, formatSpan } from "@/lib/format";
+import { getOverview, type AttentionItem } from "@/lib/overview";
 
-import { getEventStats, getEvents } from "@/lib/events";
+function AttentionBadge({ item }: { item: AttentionItem }) {
+  switch (item.status.kind) {
+    case "new":
+      return <Badge tone="accent">new</Badge>;
 
-export default function Home() {
-  const events = getEvents();
-  const stats = getEventStats();
+    case "fixed":
+      return (
+        <Badge tone="success">
+          verified fixed
+          {item.status.codeVersion ? ` · ${item.status.codeVersion}` : ""}
+        </Badge>
+      );
 
-  const averageLatency =
-    stats.averageLatency !== null ? `${stats.averageLatency}ms` : "—";
+    default:
+      return <Badge tone="warning">recurring</Badge>;
+  }
+}
+
+const SETUP_SNIPPET = `import { withRewindCapture } from "@/lib/rewind-http";
+
+export const POST = withRewindCapture(async (request) => {
+  return Response.json({ ok: true });
+});`;
+
+export default async function OverviewPage() {
+  await connection();
+
+  const overview = getOverview();
+
+  const unfixed = overview.attention.filter(
+    (item) => item.status.kind !== "fixed",
+  );
+
+  const newCount = overview.attention.filter(
+    (item) => item.status.kind === "new",
+  ).length;
+
+  const failureRate =
+    overview.totals.executions > 0
+      ? `${((overview.totals.failed / overview.totals.executions) * 100).toFixed(1)}%`
+      : "—";
+
+  if (!overview.hasAnyExecution) {
+    return (
+      <>
+        <PageHeader title="Overview" />
+
+        <EmptyState
+          icon={<Radio size={28} />}
+          title="No executions yet"
+          action={
+            <pre className="w-full max-w-lg overflow-x-auto rounded-lg border border-line bg-canvas p-4 text-left font-mono text-xs leading-5 text-ink-2">
+              {SETUP_SNIPPET}
+            </pre>
+          }
+        >
+          Wrap a route handler with <code>withRewindCapture</code> and send it a
+          request. Every request becomes an execution you can replay, compare
+          and turn into a regression test.
+        </EmptyState>
+      </>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-[#070b14]">
-      <Sidebar />
+    <>
+      <PageHeader
+        title="Overview"
+        description={
+          unfixed.length === 0
+            ? "Nothing needs attention: every recorded failure has been verified as fixed."
+            : `${unfixed.length} ${unfixed.length === 1 ? "failure needs" : "failures need"} attention${
+                newCount > 0 ? `, ${newCount} new in the last 24 hours` : ""
+              }.`
+        }
+      />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
-
-        <main className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-[1500px]">
-            <div className="flex items-end justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-white">
-                  Events
-                </h1>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  A unified view of everything happening in your application.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button className="flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 text-xs text-slate-400 hover:bg-white/[0.05]">
-                  Last 24 hours
-                </button>
-
-                <button className="flex h-9 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 text-xs text-slate-400 hover:bg-white/[0.05]">
-                  Filter
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-4 gap-4">
-              <StatCard
-                label="Events"
-                value={stats.total.toLocaleString()}
-                description="Captured locally"
-                type="events"
-              />
-
-              <StatCard
-                label="Errors"
-                value={stats.errors.toString()}
-                description="Events requiring attention"
-                type="errors"
-              />
-
-              <StatCard
-                label="Webhooks"
-                value={stats.webhooks.toString()}
-                description="Captured webhook events"
-                type="webhooks"
-              />
-
-              <StatCard
-                label="Avg. latency"
-                value={averageLatency}
-                description="Across captured requests"
-                type="latency"
-              />
-            </div>
-
-            <div className="mt-8">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-medium text-slate-200">
-                    Recent events
-                  </h2>
-
-                  <p className="mt-1 text-xs text-slate-600">
-                    Latest activity captured by Rewind.
-                  </p>
-                </div>
-
-                <span className="text-[11px] text-slate-600">
-                  {events.length} events
-                </span>
-              </div>
-
-              {events.length > 0 ? (
-                <EventsExplorer events={events} />
-              ) : (
-                <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-12 text-center">
-                  <Activity size={28} className="mx-auto text-slate-700" />
-
-                  <h3 className="mt-4 text-sm font-medium text-slate-300">
-                    No events yet
-                  </h3>
-
-                  <p className="mt-1 text-xs text-slate-600">
-                    Capture your first event to start using Rewind.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-4">
-              <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-                  <Activity size={17} />
-                </div>
-
-                <h3 className="text-sm font-medium text-slate-200">
-                  Reproduce easily
-                </h3>
-
-                <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                  Replay real events against your local environment.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10 text-purple-400">
-                  <Webhook size={17} />
-                </div>
-
-                <h3 className="text-sm font-medium text-slate-200">
-                  Understand the full story
-                </h3>
-
-                <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                  Connect requests, errors, webhooks and activity.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/[0.07] bg-[#0d1320] p-5">
-                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <Clock3 size={17} />
-                </div>
-
-                <h3 className="text-sm font-medium text-slate-200">
-                  Prevent the next incident
-                </h3>
-
-                <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                  Turn real production failures into repeatable tests.
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat
+          label="Executions · 24h"
+          value={overview.totals.executions.toLocaleString()}
+        />
+        <Stat
+          label="Failed · 24h"
+          value={overview.totals.failed.toLocaleString()}
+          tone={overview.totals.failed > 0 ? "failure" : undefined}
+        />
+        <Stat
+          label="Failure rate"
+          value={failureRate}
+          tone={overview.totals.failed > 0 ? "failure" : undefined}
+        />
+        <Stat
+          label="Open failures"
+          value={unfixed.length}
+          tone={unfixed.length > 0 ? "failure" : "success"}
+        />
       </div>
-    </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <Panel
+          title="Needs attention"
+          description="Failures grouped by fingerprint, open ones first"
+          actions={
+            <Link href="/fingerprints" className="text-accent hover:brightness-125">
+              All failures
+            </Link>
+          }
+          flush
+        >
+          {overview.attention.length === 0 ? (
+            <div className="flex items-center gap-2 px-4 py-8 text-sm text-muted">
+              <CheckCircle2 size={16} className="text-success" />
+              No failures recorded.
+            </div>
+          ) : (
+            <ul className="divide-y divide-line">
+              {overview.attention.map((item) => (
+                <li key={item.fingerprint.id}>
+                  <Link
+                    href={`/fingerprints/${item.fingerprint.id}`}
+                    className="flex items-stretch gap-3 px-4 py-3 transition hover:bg-raised"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`w-0.5 shrink-0 rounded-full ${
+                        item.status.kind === "fixed"
+                          ? "bg-success"
+                          : item.status.kind === "new"
+                            ? "bg-accent"
+                            : "bg-failure"
+                      }`}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm text-ink">
+                        {item.fingerprint.signature.message}
+                      </div>
+
+                      <div className="mt-0.5 truncate font-mono text-xs text-muted">
+                        {item.fingerprint.signature.endpoint} ·{" "}
+                        {item.fingerprint.signature.originType}
+                        {item.fingerprint.signature.status !== null
+                          ? ` · ${item.fingerprint.signature.status}`
+                          : ""}
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end justify-center gap-1">
+                      <AttentionBadge item={item} />
+
+                      <span className="font-mono text-xs tabular-nums text-muted">
+                        {item.fingerprint.count}× · {formatRelative(item.fingerprint.lastSeenAt)}
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <div className="flex flex-col gap-6">
+          <Panel title="Executions per hour" description="Last 24 hours, replays excluded">
+            <ExecutionsChart hours={overview.hours} />
+          </Panel>
+
+          <Panel
+            title="Verification"
+            description="Recorded failures replayed against a build"
+            actions={
+              <Link href="/verifications" className="text-accent hover:brightness-125">
+                All runs
+              </Link>
+            }
+            flush
+          >
+            {overview.verificationRuns.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted">
+                No runs yet. Run <code className="font-mono">npm run verify</code>{" "}
+                in CI to prove failures stay fixed.
+              </p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {overview.verificationRuns.map((run) => (
+                  <li
+                    key={run.id}
+                    className="flex items-center gap-3 px-4 py-3 text-sm"
+                  >
+                    <Badge tone={run.failed === 0 ? "success" : "failure"}>
+                      {run.failed === 0 ? "pass" : "fail"}
+                    </Badge>
+
+                    <span className="min-w-0 flex-1 truncate text-ink-2">
+                      {run.passed}/{run.total} verified
+                      {run.codeVersion && (
+                        <span className="ml-2 font-mono text-xs text-muted">
+                          {run.codeVersion}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+                      {formatRelative(run.createdAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      <Panel
+        className="mt-6"
+        title="Recent executions"
+        actions={
+          <Link href="/executions" className="text-accent hover:brightness-125">
+            All executions
+          </Link>
+        }
+        flush
+      >
+        <ul className="divide-y divide-line">
+          {overview.recentExecutions.map((execution) => (
+            <li key={execution.id}>
+              <Link
+                href={`/executions/${execution.id}`}
+                className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-raised"
+              >
+                <EventIcon
+                  type={execution.rootType ?? "http.request"}
+                  status={execution.status}
+                  size="sm"
+                />
+
+                <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                  {execution.rootTitle ?? execution.id}
+                </span>
+
+                {execution.isReplay && <Badge tone="accent">replay</Badge>}
+
+                <span className="hidden font-mono text-xs tabular-nums text-muted sm:block">
+                  {execution.eventCount} ev · {formatSpan(execution.startedAt, execution.endedAt)}
+                </span>
+
+                <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
+                  {formatRelative(execution.startedAt)}
+                </span>
+
+                <StatusDot status={execution.status} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+    </>
   );
 }
