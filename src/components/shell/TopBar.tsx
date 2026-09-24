@@ -54,7 +54,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
         <RewindLogo showText={false} />
       </Link>
 
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {children}
       </div>
     </div>

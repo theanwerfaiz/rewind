@@ -2,6 +2,7 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 
+import { CommandPalette } from "@/components/shell/CommandPalette";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { TopBar } from "@/components/shell/TopBar";
 
@@ -31,7 +32,9 @@ export default function RootLayout({
           <Sidebar />
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar />
+            <TopBar>
+              <CommandPalette />
+            </TopBar>
 
             <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 md:px-8 md:py-8">
               {children}
