@@ -136,6 +136,13 @@ export default async function ExecutionPage({
             ← All executions
           </Link>
 
+          <Link
+            href="/fingerprints"
+            className="text-slate-500 transition hover:text-slate-200"
+          >
+            Failures
+          </Link>
+
           {execution.rootEventId && (
             <Link
               href={`/events/${execution.rootEventId}`}
@@ -182,8 +189,19 @@ export default async function ExecutionPage({
 
         {firstFailure && (
           <section className="mb-8 rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-6">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-400">
-              Failure
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-red-400">
+                Failure
+              </div>
+
+              {execution.fingerprintId && (
+                <Link
+                  href={`/fingerprints/${execution.fingerprintId}`}
+                  className="rounded-lg border border-red-500/20 px-2.5 py-1 font-mono text-[11px] text-red-300 transition hover:border-red-400/40"
+                >
+                  {execution.fingerprintId} →
+                </Link>
+              )}
             </div>
 
             <h2 className="mt-2 text-lg font-medium text-red-100">

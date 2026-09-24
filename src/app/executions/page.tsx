@@ -50,9 +50,12 @@ export default async function ExecutionsPage() {
               </span>
 
               {failed > 0 && (
-                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-300">
-                  {failed} failed
-                </span>
+                <Link
+                  href="/fingerprints"
+                  className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs text-red-300 transition hover:border-red-400/40"
+                >
+                  {failed} failed · view failures →
+                </Link>
               )}
             </div>
 

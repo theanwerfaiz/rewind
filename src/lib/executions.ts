@@ -24,6 +24,8 @@ export type RewindExecution = {
 
   rootTitle: string | null;
   rootType: EventType | null;
+
+  fingerprintId: string | null;
 };
 
 type ExecutionRow = {
@@ -39,6 +41,7 @@ type ExecutionRow = {
   updated_at: string;
   root_title: string | null;
   root_type: EventType | null;
+  fingerprint_id: string | null;
 };
 
 const EXECUTION_COLUMNS = `
@@ -73,6 +76,8 @@ function mapExecution(row: ExecutionRow): RewindExecution {
 
     rootTitle: row.root_title,
     rootType: row.root_type,
+
+    fingerprintId: row.fingerprint_id,
   };
 }
 
@@ -165,6 +170,27 @@ export function getExecutions(limit = 100): RewindExecution[] {
       `,
     )
     .all(limit) as ExecutionRow[];
+
+  return rows.map(mapExecution);
+}
+
+export function getExecutionsByFingerprint(
+  fingerprintId: string,
+  limit = 100,
+): RewindExecution[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT ${EXECUTION_COLUMNS}
+      FROM executions
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.fingerprint_id = ?
+      ORDER BY executions.started_at DESC
+      LIMIT ?
+      `,
+    )
+    .all(fingerprintId, limit) as ExecutionRow[];
 
   return rows.map(mapExecution);
 }

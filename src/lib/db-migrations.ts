@@ -65,6 +65,17 @@ export function migrateDatabase(db: Database.Database) {
       CREATE INDEX IF NOT EXISTS idx_executions_trace_id
         ON executions(trace_id);
 
+      CREATE TABLE IF NOT EXISTS failure_fingerprints (
+        id TEXT PRIMARY KEY,
+        version INTEGER NOT NULL,
+        endpoint TEXT NOT NULL,
+        origin_type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        status INTEGER,
+        path TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS event_edges (
         id TEXT PRIMARY KEY,
         execution_id TEXT,
@@ -110,6 +121,19 @@ export function migrateDatabase(db: Database.Database) {
         created_at
       FROM events
       WHERE parent_event_id IS NOT NULL;
+    `);
+
+    if (!hasColumn(db, "executions", "fingerprint_id")) {
+      db.exec(`ALTER TABLE executions ADD COLUMN fingerprint_id TEXT`);
+    }
+
+    if (!hasColumn(db, "executions", "fingerprint_version")) {
+      db.exec(`ALTER TABLE executions ADD COLUMN fingerprint_version INTEGER`);
+    }
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_executions_fingerprint_id
+        ON executions(fingerprint_id);
     `);
   }).immediate();
 }

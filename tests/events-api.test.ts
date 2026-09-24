@@ -14,6 +14,10 @@ import { GET as getExecution } from "@/app/api/executions/[id]/route";
 
 import { GET as listExecutions } from "@/app/api/executions/route";
 
+import { GET as getFingerprint } from "@/app/api/fingerprints/[id]/route";
+
+import { GET as listFingerprints } from "@/app/api/fingerprints/route";
+
 const createdIds: string[] = [];
 
 const createdExecutionIds: string[] = [];
@@ -349,5 +353,148 @@ describe("events API execution identity", () => {
 
     expect(data.event.executionId).toBeNull();
     expect(data.event.parentEventId).toBeNull();
+  });
+});
+
+describe("failure fingerprints API", () => {
+  async function captureCheckoutFailure(orderId: string, timeoutMs: number) {
+    const suffix = uniqueSuffix();
+
+    const executionId = `exe_fp_${suffix}`;
+
+    const rootId = `evt_fproot_${suffix}`;
+
+    createdExecutionIds.push(executionId);
+
+    // Child first, as in real capture: the root is stored when it finishes.
+    await createEvent({
+      id: `evt_fpchild_${suffix}`,
+      type: "error",
+      title: `Payment timeout after ${timeoutMs}ms`,
+      status: "error",
+      executionId,
+      parentEventId: rootId,
+    });
+
+    await createEvent({
+      id: rootId,
+      type: "http.request",
+      title: `POST /api/fp-test/${orderId}/checkout`,
+      status: "error",
+      executionId,
+      parentEventId: null,
+    });
+
+    const execution = db
+      .prepare(`SELECT fingerprint_id FROM executions WHERE id = ?`)
+      .get(executionId) as { fingerprint_id: string | null };
+
+    return {
+      executionId,
+      fingerprintId: execution.fingerprint_id,
+    };
+  }
+
+  it("groups recurring failures under one fingerprint", async () => {
+    const first = await captureCheckoutFailure("1001", 5000);
+    const second = await captureCheckoutFailure("2002", 9000);
+
+    expect(first.fingerprintId).toMatch(/^fp_/);
+    expect(second.fingerprintId).toBe(first.fingerprintId);
+
+    const response = await getFingerprint(
+      new NextRequest(
+        `http://localhost:3000/api/fingerprints/${first.fingerprintId}`,
+      ),
+      {
+        params: Promise.resolve({
+          id: first.fingerprintId!,
+        }),
+      },
+    );
+
+    const data = await response.json();
+
+    expect(data.fingerprint).toMatchObject({
+      id: first.fingerprintId,
+      count: 2,
+      representativeExecutionId: first.executionId,
+      signature: {
+        endpoint: "POST /api/fp-test/:id/checkout",
+        originType: "error",
+        message: "payment timeout after <n>",
+        path: "http.request>error",
+      },
+    });
+
+    expect(
+      data.executions.map((execution: { id: string }) => execution.id).sort(),
+    ).toEqual([first.executionId, second.executionId].sort());
+
+    const listResponse = await listFingerprints(
+      new NextRequest("http://localhost:3000/api/fingerprints?limit=500"),
+    );
+
+    const list = await listResponse.json();
+
+    expect(
+      list.fingerprints.map((fingerprint: { id: string }) => fingerprint.id),
+    ).toContain(first.fingerprintId);
+  });
+
+  it("does not fingerprint successful executions", async () => {
+    const executionId = `exe_fp_ok_${uniqueSuffix()}`;
+
+    createdExecutionIds.push(executionId);
+
+    await createEvent({
+      type: "http.request",
+      title: "GET /api/fp-ok",
+      status: "success",
+      executionId,
+      parentEventId: null,
+    });
+
+    const execution = db
+      .prepare(`SELECT fingerprint_id FROM executions WHERE id = ?`)
+      .get(executionId) as { fingerprint_id: string | null };
+
+    expect(execution.fingerprint_id).toBeNull();
+  });
+
+  it("backfills fingerprints for failed executions on read", async () => {
+    const { executionId, fingerprintId } = await captureCheckoutFailure(
+      "3003",
+      1000,
+    );
+
+    db.prepare(
+      `UPDATE executions
+       SET fingerprint_id = NULL, fingerprint_version = NULL
+       WHERE id = ?`,
+    ).run(executionId);
+
+    await listFingerprints(
+      new NextRequest("http://localhost:3000/api/fingerprints"),
+    );
+
+    const execution = db
+      .prepare(`SELECT fingerprint_id FROM executions WHERE id = ?`)
+      .get(executionId) as { fingerprint_id: string | null };
+
+    expect(execution.fingerprint_id).toBe(fingerprintId);
+  });
+
+  it("returns 404 for an unknown fingerprint", async () => {
+    const response = await getFingerprint(
+      new NextRequest("http://localhost:3000/api/fingerprints/fp_nope"),
+      {
+        params: Promise.resolve({
+          id: "fp_nope",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(404);
   });
 });

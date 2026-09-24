@@ -171,6 +171,40 @@ describe("migrateDatabase", () => {
     ]);
   });
 
+  it("adds failure fingerprint storage", () => {
+    database = createLegacyDatabase();
+
+    migrateDatabase(database);
+
+    const executionColumns = (
+      database.prepare(`PRAGMA table_info(executions)`).all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+
+    expect(executionColumns).toEqual(
+      expect.arrayContaining(["fingerprint_id", "fingerprint_version"]),
+    );
+
+    const fingerprintColumns = (
+      database.prepare(`PRAGMA table_info(failure_fingerprints)`).all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+
+    expect(fingerprintColumns).toEqual(
+      expect.arrayContaining([
+        "id",
+        "version",
+        "endpoint",
+        "origin_type",
+        "message",
+        "status",
+        "path",
+      ]),
+    );
+  });
+
   it("creates correlation indexes", () => {
     database = createLegacyDatabase();
 

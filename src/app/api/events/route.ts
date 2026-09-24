@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { recordParentEdge } from "@/lib/event-edges";
 import { recordExecutionEvent } from "@/lib/executions";
+import { assignExecutionFingerprint } from "@/lib/fingerprints";
 
 export const runtime = "nodejs";
 
@@ -342,6 +343,10 @@ export async function POST(request: NextRequest) {
             childEventId: id,
             createdAt,
           });
+        }
+
+        if (executionId) {
+          assignExecutionFingerprint(executionId);
         }
       })();
     } catch (error) {
