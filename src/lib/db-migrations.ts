@@ -278,5 +278,11 @@ export function migrateDatabase(db: Database.Database) {
         created_at TEXT NOT NULL
       );
     `);
+
+    // The live stream polls for executions changed since a timestamp.
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_executions_updated_at
+        ON executions(updated_at);
+    `);
   }).immediate();
 }

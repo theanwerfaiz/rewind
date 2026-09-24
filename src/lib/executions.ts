@@ -222,6 +222,32 @@ export function getExecutions(limit = 100): RewindExecution[] {
   return rows.map(mapExecution);
 }
 
+/**
+ * Executions created or changed after `since` (an updated_at value), oldest
+ * change first, for the live stream. An execution appears again when a
+ * late event changes it, e.g. from success to error.
+ */
+export function getExecutionsUpdatedSince(
+  since: string,
+  limit = 50,
+): RewindExecution[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT ${EXECUTION_COLUMNS}
+      FROM executions
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.updated_at > ?
+      ORDER BY executions.updated_at ASC
+      LIMIT ?
+      `,
+    )
+    .all(since, limit) as ExecutionRow[];
+
+  return rows.map(mapExecution);
+}
+
 /** Executions whose ID starts with, or root title contains, the pattern. */
 export function searchExecutions(
   idPrefix: string,
