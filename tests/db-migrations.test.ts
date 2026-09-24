@@ -91,6 +91,44 @@ describe("migrateDatabase", () => {
     });
   });
 
+  it("adds execution identity columns and the executions table", () => {
+    database = createLegacyDatabase();
+
+    migrateDatabase(database);
+
+    expect(columnNames(database)).toEqual(
+      expect.arrayContaining(["execution_id", "parent_event_id"]),
+    );
+
+    const row = database
+      .prepare(`SELECT execution_id, parent_event_id FROM events`)
+      .get();
+
+    expect(row).toEqual({
+      execution_id: null,
+      parent_event_id: null,
+    });
+
+    const executionColumns = (
+      database.prepare(`PRAGMA table_info(executions)`).all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+
+    expect(executionColumns).toEqual(
+      expect.arrayContaining([
+        "id",
+        "started_at",
+        "ended_at",
+        "status",
+        "trace_id",
+        "root_event_id",
+        "environment",
+        "event_count",
+      ]),
+    );
+  });
+
   it("creates correlation indexes", () => {
     database = createLegacyDatabase();
 
@@ -101,6 +139,8 @@ describe("migrateDatabase", () => {
         "idx_events_trace_id",
         "idx_events_span_id",
         "idx_events_session_id",
+        "idx_events_execution_id",
+        "idx_events_parent_event_id",
       ]),
     );
   });

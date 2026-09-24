@@ -47,6 +47,7 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
         event.spanId,
         event.sessionId,
         event.userId,
+        event.executionId,
       ]
         .filter(Boolean)
         .join(" ")

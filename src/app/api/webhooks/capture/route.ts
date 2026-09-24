@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { extractCorrelationIds } from "@/lib/correlation";
+import {
+  createExecutionId,
+  getExecutionContext,
+} from "@/lib/execution-context";
 import { rewind } from "@/lib/rewind";
 
 export const runtime = "nodejs";
@@ -47,6 +51,9 @@ export async function POST(request: NextRequest) {
       ...correlationIds,
 
       requestId,
+
+      // A webhook opens a new execution unless it arrives inside one.
+      executionId: getExecutionContext()?.executionId ?? createExecutionId(),
 
       metadata: {
         environment: process.env.NODE_ENV ?? "development",

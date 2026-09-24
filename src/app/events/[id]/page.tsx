@@ -148,6 +148,21 @@ export default async function EventDetailsPage({
               <InfoRow label="Session ID" value={event.sessionId ?? "—"} />
 
               <InfoRow label="User ID" value={event.userId ?? "—"} />
+
+              <InfoRow label="Execution ID" value={event.executionId ?? "—"} />
+
+              <InfoRow
+                label="Parent Event"
+                value={
+                  event.parentEventId ??
+                  (event.executionId ? "— (execution root)" : "—")
+                }
+                href={
+                  event.parentEventId
+                    ? `/events/${event.parentEventId}`
+                    : undefined
+                }
+              />
             </div>
           </section>
         </div>

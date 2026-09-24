@@ -2,9 +2,22 @@ import { NextRequest } from "next/server";
 
 import { extractCorrelationIds } from "@/lib/correlation";
 import type { RewindHttpMetadata } from "@/lib/event-metadata";
+import {
+  createEventId,
+  createExecutionId,
+  getExecutionContext,
+  runInExecution,
+} from "@/lib/execution-context";
 import { rewind } from "@/lib/rewind";
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
+
+type HttpEventIdentity = {
+  eventId: string;
+  executionId: string;
+  parentEventId: string | null;
+  startedAt: string;
+};
 
 const REDACTED_HEADERS = new Set([
   "authorization",
@@ -102,6 +115,7 @@ async function readResponseBody(response: Response) {
 }
 
 async function captureHttpEvent(
+  identity: HttpEventIdentity,
   request: NextRequest,
   response: Response | null,
   payload: unknown,
@@ -217,6 +231,10 @@ async function captureHttpEvent(
 
   try {
     await rewind.capture({
+      id: identity.eventId,
+      timestamp: identity.startedAt,
+      executionId: identity.executionId,
+      parentEventId: identity.parentEventId,
       type: "http.request",
       title: `${method} ${path}`,
       status: eventStatus,
@@ -235,23 +253,47 @@ export function withRewindCapture(handler: RouteHandler): RouteHandler {
   return async (request) => {
     const startTime = performance.now();
 
+    // A request handled inside another execution joins it as a child;
+    // otherwise it is the root of a new execution.
+    const parent = getExecutionContext();
+
+    const identity: HttpEventIdentity = {
+      eventId: createEventId(),
+      executionId: parent?.executionId ?? createExecutionId(),
+      parentEventId: parent?.eventId ?? null,
+      startedAt: new Date().toISOString(),
+    };
+
     const payload = await readRequestPayload(request);
 
     let response: Response;
 
     try {
-      response = await handler(request);
+      response = await runInExecution(
+        {
+          executionId: identity.executionId,
+          eventId: identity.eventId,
+        },
+        () => handler(request),
+      );
     } catch (error) {
       const durationMs = Math.round(performance.now() - startTime);
 
-      await captureHttpEvent(request, null, payload, durationMs, error);
+      await captureHttpEvent(
+        identity,
+        request,
+        null,
+        payload,
+        durationMs,
+        error,
+      );
 
       throw error;
     }
 
     const durationMs = Math.round(performance.now() - startTime);
 
-    await captureHttpEvent(request, response, payload, durationMs);
+    await captureHttpEvent(identity, request, response, payload, durationMs);
 
     return response;
   };

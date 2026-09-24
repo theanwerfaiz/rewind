@@ -283,4 +283,24 @@ describe("POST /api/webhooks/capture", () => {
 
     expect(captureMock.mock.calls[0][0].requestId).toMatch(/^req_/);
   });
+
+  it("opens a new execution for each webhook", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_webhook_execution",
+      timestamp: "2026-09-12T00:00:00.000Z",
+      type: "webhook.received",
+      title: "Webhook received",
+      status: "success",
+    });
+
+    await POST(createRequest({ id: "first" }));
+    await POST(createRequest({ id: "second" }));
+
+    const first = captureMock.mock.calls[0][0].executionId;
+    const second = captureMock.mock.calls[1][0].executionId;
+
+    expect(first).toMatch(/^exe_/);
+    expect(second).toMatch(/^exe_/);
+    expect(first).not.toBe(second);
+  });
 });

@@ -26,6 +26,9 @@ export type RewindEvent = {
   sessionId?: string | null;
   userId?: string | null;
 
+  executionId?: string | null;
+  parentEventId?: string | null;
+
   metadata?: Record<string, unknown>;
   payload?: unknown;
 

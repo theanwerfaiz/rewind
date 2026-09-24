@@ -16,6 +16,8 @@ type EventRow = {
   request_id: string | null;
   session_id: string | null;
   user_id: string | null;
+  execution_id: string | null;
+  parent_event_id: string | null;
   metadata: string | null;
   payload: string | null;
   created_at: string;
@@ -68,6 +70,8 @@ export async function POST(request: NextRequest) {
           request_id,
           session_id,
           user_id,
+          execution_id,
+          parent_event_id,
           metadata,
           payload,
           created_at
@@ -114,6 +118,9 @@ export async function POST(request: NextRequest) {
       requestId: row.request_id,
       sessionId: row.session_id,
       userId: row.user_id,
+
+      executionId: row.execution_id,
+      parentEventId: row.parent_event_id,
 
       metadata: parseJson(row.metadata) as Record<string, unknown> | undefined,
 
