@@ -80,3 +80,29 @@ export async function readJsonBody(
 ): Promise<unknown> {
   return JSON.parse(await readTextBody(request, maxBytes));
 }
+
+/**
+ * Reads a body that must be a JSON object. Returns null for invalid JSON
+ * or any other JSON value, so routes can answer 400 instead of failing.
+ * Oversized bodies still throw BodyTooLargeError.
+ */
+export async function readJsonObject(
+  request: Request,
+  maxBytes = DEFAULT_MAX_BODY_BYTES,
+): Promise<Record<string, unknown> | null> {
+  let value: unknown;
+
+  try {
+    value = await readJsonBody(request, maxBytes);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      throw error;
+    }
+
+    return null;
+  }
+
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}

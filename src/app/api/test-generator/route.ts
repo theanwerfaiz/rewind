@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readJsonBody } from "@/lib/request-body";
+import { readJsonObject } from "@/lib/request-body";
 import db from "@/lib/db";
 import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { generateTest } from "@/lib/test-generator";
@@ -39,7 +39,18 @@ function parseJson(value: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = ((await readJsonBody(request)) ?? {}) as Record<string, unknown>;
+    const body = await readJsonObject(request);
+
+    if (!body) {
+      return NextResponse.json(
+        {
+          error: "Request body must be a JSON object.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     const eventId = body.eventId;
 

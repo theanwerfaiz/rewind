@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { redactUrl } from "@/lib/redaction";
-import { readJsonBody } from "@/lib/request-body";
+import { BodyTooLargeError, readJsonBody } from "@/lib/request-body";
 
 import { extractCorrelationIds } from "@/lib/correlation";
 import {
@@ -43,7 +43,24 @@ export async function POST(request: NextRequest) {
 
     const requestId = correlationIds.requestId ?? `req_${crypto.randomUUID()}`;
 
-    const payload = await readJsonBody(request);
+    let payload: unknown;
+
+    try {
+      payload = await readJsonBody(request);
+    } catch (error) {
+      if (error instanceof BodyTooLargeError) {
+        throw error;
+      }
+
+      return NextResponse.json(
+        {
+          error: "Webhook body must be valid JSON.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     const headers = captureHeaders(request);
 
