@@ -35,7 +35,18 @@ After the engine work, the dashboard was rebuilt following the "Rewind Interface
 
 Fixes along the way: `02a5e2d` (the test suite wrote into `data/rewind.db`; it now uses a per-run temporary database through `REWIND_DB_PATH`), `5922a0a` (capsule page overflow on phones).
 
-Now: 33 test files, 396 tests; `npm run build` passes; lint shows only the 7 pre-existing `no-explicit-any` errors in `src/app/api/events/route.ts`. Every page returns 200 with no console errors and no horizontal scroll at 1440px and 390px.
+Then a production-readiness pass:
+
+| Area | Commit |
+| --- | --- |
+| API hardening: body size limits, no leaked exception messages, webhook query redaction, telemetry off | `f64a89a` |
+| Optional access control (`REWIND_ACCESS_TOKEN`), `/login`, rate-limited failures | `020a4f7` |
+| WCAG AA in both themes (axe: 0 violations on every page), page titles, icon, robots | `a2b4733` |
+| Malformed bodies return 400 (found by fuzzing every route) | `efd3c53` |
+
+The README was rewritten as a short guide; the previous full README is now `docs/REFERENCE.md`.
+
+Now: 35 test files, 435 tests; `npm run build` passes; lint shows only the 7 pre-existing `no-explicit-any` errors in `src/app/api/events/route.ts`. Every page returns 200 with no console errors and no horizontal scroll at 1440px and 390px.
 
 ## Decisions worth knowing
 
@@ -50,6 +61,7 @@ Now: 33 test files, 396 tests; `npm run build` passes; lint shows only the 7 pre
 - **Design tokens are the only colors.** `src/app/globals.css` defines roles (canvas, panel, ink, muted, accent, failure…) for dark (default) and light; components use them through Tailwind (`bg-panel`, `text-muted`). Base element styles live in `@layer base` so utilities can override them.
 - **Settings only add redaction.** Extra headers and fields are redacted on ingest in `POST /api/events`; they cannot weaken the built-in rules. `live` can never be the default dependency mode.
 - **Per-browser preferences** (theme, density, saved views, dismissed checklist) use `localStorage` behind try/catch; everything shared lives in SQLite.
+- **Access control is opt-in.** With `REWIND_ACCESS_TOKEN` unset nothing changes. When set, `src/proxy.ts` (Next 16's renamed middleware) checks a bearer token, `x-rewind-token`, or a session cookie that is a SHA-256 of the token (never the token itself). Pages redirect to `/login`, APIs answer 401, and failures are rate limited in memory per process.
 - **Tests that change shared rows run in a rolled-back transaction** (settings, incidents, onboarding), because test files run in parallel on one database.
 - **Investigation is deterministic.** It cites evidence and tests hypotheses through replays; an LLM could narrate or propose hypotheses later, but nothing currently calls a model.
 
