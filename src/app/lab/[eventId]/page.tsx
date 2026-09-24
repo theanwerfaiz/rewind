@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/StatusBadge";
 import { ButtonLink } from "@/components/ui/primitives";
 import { formatDateTime, shortId } from "@/lib/format";
+import type { Metadata } from "next";
 
 const REPLAYABLE_TYPES = new Set(["http.request", "webhook.received"]);
 
@@ -39,6 +40,20 @@ function Block({ label, value }: { label: string; value: unknown }) {
       </pre>
     </div>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ eventId: string }>;
+}): Promise<Metadata> {
+  const { eventId } = await params;
+
+  const event = getEventById(eventId);
+
+  return {
+    title: event ? `Replay Lab · ${event.title}` : "Replay Lab",
+  };
 }
 
 export default async function ReplayLabPage({

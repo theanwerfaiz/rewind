@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { getFingerprints } from "@/lib/fingerprints";
 import { PageHeader } from "@/components/ui/PageHeader";
+import type { Metadata } from "next";
 
 function formatDateTime(timestamp: string) {
   return new Date(timestamp).toLocaleString([], {
@@ -12,6 +13,10 @@ function formatDateTime(timestamp: string) {
     minute: "2-digit",
   });
 }
+
+export const metadata: Metadata = {
+  title: "Failures",
+};
 
 export default async function FingerprintsPage() {
   await connection();

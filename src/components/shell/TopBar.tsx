@@ -25,7 +25,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
   }
 
   return (
-    <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur md:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur md:px-6">
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Trigger
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 transition hover:bg-raised hover:text-ink lg:hidden"
@@ -65,6 +65,6 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {children}
       </div>
-    </div>
+    </header>
   );
 }

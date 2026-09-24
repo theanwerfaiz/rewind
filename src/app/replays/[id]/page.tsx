@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge, HttpStatus } from "@/components/ui/StatusBadge";
 import { ButtonLink } from "@/components/ui/primitives";
 import { shortId } from "@/lib/format";
+import type { Metadata } from "next";
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -64,6 +65,20 @@ function getOriginalResponseHeaders(metadata: unknown) {
   };
 
   return value.response?.headers;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const replay = getReplayById(id);
+
+  return {
+    title: replay ? `Replay · ${replay.label ?? `${replay.method} ${replay.url}`}` : "Replay not found",
+  };
 }
 
 export default async function ReplayDetailsPage({

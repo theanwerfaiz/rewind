@@ -192,7 +192,7 @@ export function ExecutionGraph({
             )}
 
             <span className="font-mono text-xs tabular-nums text-faint">
-              0 — {formatMs(totalMs)}
+              0–{formatMs(totalMs)}
             </span>
           </div>
         </div>

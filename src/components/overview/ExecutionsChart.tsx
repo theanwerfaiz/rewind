@@ -118,6 +118,7 @@ export function ExecutionsChart({ hours }: { hours: HourBucket[] }) {
                   height={HEIGHT}
                   fill="transparent"
                   tabIndex={0}
+                  role="img"
                   aria-label={`${hourLabel(bucket.hour)}: ${bucket.total} executions, ${bucket.failed} failed`}
                   onPointerEnter={() => setActive(index)}
                   onPointerLeave={() => setActive(null)}

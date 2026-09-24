@@ -143,7 +143,6 @@ export function SideBySideDiff({
                   className={`grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)] border-b border-line last:border-0 ${ROW_TONES[row.state]}`}
                 >
                   <span
-                    aria-label={mark.label}
                     title={
                       row.kinds.length > 0
                         ? `changed: ${row.kinds.map((kind) => KIND_LABELS[kind]).join(", ")}`
@@ -151,7 +150,8 @@ export function SideBySideDiff({
                     }
                     className={`flex items-center justify-center font-mono text-sm ${mark.className}`}
                   >
-                    {mark.symbol}
+                    <span aria-hidden="true">{mark.symbol}</span>
+                    <span className="sr-only">{mark.label}</span>
                   </span>
 
                   <Cell side={row.original} depth={row.depth} state={row.state} />

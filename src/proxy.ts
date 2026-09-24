@@ -84,5 +84,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except Next's own assets and the icon.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  matcher: ["/((?!_next/static|_next/image|icon.svg|robots.txt).*)"],
 };

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { CapsuleImporter } from "@/components/capsules/CapsuleImporter";
 import { getCapsuleImports } from "@/lib/capsule-store";
 import { PageHeader } from "@/components/ui/PageHeader";
+import type { Metadata } from "next";
 
 function formatDateTime(timestamp: string) {
   return new Date(timestamp).toLocaleString([], {
@@ -13,6 +14,10 @@ function formatDateTime(timestamp: string) {
     minute: "2-digit",
   });
 }
+
+export const metadata: Metadata = {
+  title: "Capsules",
+};
 
 export default async function CapsulesPage() {
   await connection();

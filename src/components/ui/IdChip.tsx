@@ -29,7 +29,7 @@ export function IdChip({ id, full = false }: { id: string; full?: boolean }) {
     <button
       type="button"
       onClick={copy}
-      title={copied ? "Copied" : `${id} — click to copy`}
+      title={copied ? "Copied" : `${id} (click to copy)`}
       aria-label={`Copy ${id}`}
       className="group inline-flex max-w-full items-center gap-1.5 rounded px-1 font-mono text-xs text-muted transition hover:bg-raised hover:text-ink"
     >
