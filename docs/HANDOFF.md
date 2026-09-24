@@ -22,7 +22,20 @@ Started from `3caa854 feat: enrich HTTP capture metadata` (9 test files, 45 test
 
 Fixes found during runtime verification: `24752be` (concurrent migrations during `next build`), `4539a9b` (timeline prerendered at build time), `c96d3d1` (execution status = root outcome), `d6d2ac8` (replays kept out of failure history).
 
-Now: 25 test files, 355 tests; `npm run build` passes; lint shows only the 7 pre-existing `no-explicit-any` errors in `src/app/api/events/route.ts`.
+## Interface redesign
+
+After the engine work, the dashboard was rebuilt following the "Rewind Interface Plan" (four phases, with the recommended option taken for each open decision: Radix primitives with our own styling, Overview as home, keep and upgrade the tree and waterfall, blue accent with orange only for "recording", tokens first and light theme later, SSE, CodeMirror 6).
+
+| Phase | Commit(s) |
+| --- | --- |
+| A Foundation | `b951c58` tokens, Geist, shell, shared components; `a09fd59` every page in the shell, Overview home, events at `/events` |
+| B Core workflows | `4a742cd` execution workspace and inspector; `3cc2887` Lab JSON editor, request preview, Lab and Compare index pages; `11ac806` side-by-side diff; `77393e0` failure trend and last known good; `ece4c3f` list restyles |
+| C Power | `8c4ad1a` + `d6a841b` command palette and shortcuts; `86f8368` filter language and saved views; `35e359e` live stream and toasts |
+| D Platform | `0739761` settings, light theme, density; `0c1296e` setup checklist; `977a21f` GitHub job summary for `npm run verify`; `94651c4` incidents |
+
+Fixes along the way: `02a5e2d` (the test suite wrote into `data/rewind.db`; it now uses a per-run temporary database through `REWIND_DB_PATH`), `5922a0a` (capsule page overflow on phones).
+
+Now: 33 test files, 396 tests; `npm run build` passes; lint shows only the 7 pre-existing `no-explicit-any` errors in `src/app/api/events/route.ts`. Every page returns 200 with no console errors and no horizontal scroll at 1440px and 390px.
 
 ## Decisions worth knowing
 
@@ -34,6 +47,10 @@ Now: 25 test files, 355 tests; `npm run build` passes; lint shows only the 7 pre
 - **Replays never count as real failures.** An execution is a replay if a stored replay points at it or its root request carried `x-rewind-replay-id`.
 - **Migrations are additive and idempotent** (`src/lib/db-migrations.ts`), run at startup inside an IMMEDIATE transaction. Never delete `data/rewind.db`.
 - **Capsule format v1** is identified by a SHA-256 digest over canonical JSON. `invariants` is an optional v1 field, so capsules exported before invariants still validate.
+- **Design tokens are the only colors.** `src/app/globals.css` defines roles (canvas, panel, ink, muted, accent, failure…) for dark (default) and light; components use them through Tailwind (`bg-panel`, `text-muted`). Base element styles live in `@layer base` so utilities can override them.
+- **Settings only add redaction.** Extra headers and fields are redacted on ingest in `POST /api/events`; they cannot weaken the built-in rules. `live` can never be the default dependency mode.
+- **Per-browser preferences** (theme, density, saved views, dismissed checklist) use `localStorage` behind try/catch; everything shared lives in SQLite.
+- **Tests that change shared rows run in a rolled-back transaction** (settings, incidents, onboarding), because test files run in parallel on one database.
 - **Investigation is deterministic.** It cites evidence and tests hypotheses through replays; an LLM could narrate or propose hypotheses later, but nothing currently calls a model.
 
 ## Verifying locally
@@ -52,7 +69,9 @@ The most useful runtime check is Rewind recording a *separate* app:
 
 ## Known limitations and follow-ups
 
-- **Dashboard staleness:** `/` is prerendered at build time, so in production it shows build-time data. The fix is `await connection()` at the top of the page component in `src/app/page.tsx`, left to the developer because that file had local, uncommitted changes.
+- **`src/app/page.tsx` was rewritten** as the Overview (rendered at request time). The previous events table moved, intact, to `/events`; local edits made to the old `page.tsx` need re-applying there.
+- **Not done from the interface plan:** retention (deleting old data is destructive and needs its own design) and packaging the SDK as `@rewind/next` (the capture code still imports through the `@/` alias).
+- **The live stream polls** SQLite once a second per open dashboard. Fine for a local tool; a shared deployment would want a single poller that fans out.
 - **Generated tests target `http://localhost:3000`** (existing behaviour, pinned by tests). Making the base URL configurable would let them run against the app under test.
 - **Cross-service propagation:** executions are per process; outgoing `rewindFetch` calls do not yet propagate `traceparent` or execution IDs, so the event graph has no inferred cross-service edges.
 - **Dependency recording covers HTTP only.** Databases, Redis and queues are next in the spec.

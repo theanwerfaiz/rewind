@@ -965,6 +965,60 @@ Proof the historical failure stays fixed
 
 ---
 
+## The Dashboard
+
+The dashboard is organised around the loop above. The sidebar groups pages by the job: **Monitor** (Overview, Executions, Failures, Incidents), **Debug** (Replay Lab, Compare), **Prevent** (Capsules, Verifications), **Raw data** (Events, Timeline, Replays) and **Workspace** (Settings).
+
+| Page | What it is for |
+| --- | --- |
+| `/` Overview | Failures that need attention, executions per hour, verification runs, recent executions, and a setup checklist until every step is done |
+| `/executions` | Every execution, filtered with a query language (below) |
+| `/executions/:id` | A workspace with Graph, Investigation, Invariants and Experiments tabs; the graph has an inspector for the selected event |
+| `/executions/compare` | Pick two executions, or open a diff shown as aligned side-by-side trees |
+| `/fingerprints/:id` | A failure's 14-day trend and its last known good run, one click from a diff |
+| `/incidents` | Executions grouped by problem, with notes and an open or resolved status |
+| `/lab` | Captured requests to replay, and recent experiments. In an experiment the payload can be edited as JSON; the edit is stored as explicit mutations, and a preview shows the request that will be sent |
+| `/settings` | Extra redaction rules, the default dependency mode, storage, and appearance |
+
+### Search and keyboard
+
+- <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> or <kbd>/</kbd> opens the command palette: search executions, failures, replays, capsules and incidents, paste any ID or ID prefix (`exe_`, `evt_`, `fp_`, `replay_`, `cap_`, `inc_`), or run an action.
+- <kbd>g</kbd> then a key jumps to a page: <kbd>o</kbd> overview, <kbd>e</kbd> executions, <kbd>f</kbd> failures, <kbd>i</kbd> incidents, <kbd>l</kbd> Replay Lab, <kbd>d</kbd> compare, <kbd>c</kbd> capsules, <kbd>v</kbd> verifications, <kbd>n</kbd> events, <kbd>r</kbd> replays, <kbd>s</kbd> settings.
+- In the execution graph: <kbd>j</kbd>/<kbd>k</kbd> move, <kbd>h</kbd>/<kbd>l</kbd> fold, <kbd>Enter</kbd> opens the event.
+- <kbd>?</kbd> lists every shortcut.
+
+### Filtering executions
+
+Terms are combined with AND; `-` negates a term and values can be quoted. The query is kept in the URL, so a filtered view can be shared.
+
+```text
+status:error endpoint:/checkout since:24h -is:replay
+```
+
+| Term | Matches |
+| --- | --- |
+| `status:error`, `status:success` | the execution's status |
+| `is:failed` | real failures (errors that are not replays) |
+| `is:replay`, `is:imported` | replays, and executions imported from a capsule |
+| `env:production` | the environment |
+| `endpoint:/checkout` | text in the root request's title |
+| `fp:12c4` | a fingerprint ID prefix |
+| `since:30m`, `since:24h`, `since:7d` | started within the span |
+| `duration:>500ms`, `duration:<2s` | total duration |
+| anything else | the title, or an execution ID prefix |
+
+A term that cannot be parsed is named on screen rather than guessed. Presets cover common views, and a filter can be saved as a view in the browser.
+
+### Live updates
+
+The top bar shows whether the dashboard is connected to `GET /api/stream`, a Server-Sent Events stream of new and changed executions. A new real failure raises a toast, and list pages refresh as executions arrive.
+
+### Appearance
+
+Dark is the default. Settings offers a light theme, a system-following theme and a compact density; these are saved in the browser.
+
+---
+
 ## Correlation IDs
 
 HTTP and webhook capture record these headers as first-class event fields:
@@ -1395,6 +1449,27 @@ Replays, experiments, investigations and verifications send requests here (local
 
 ---
 
+## Database Path
+
+Rewind stores everything in `data/rewind.db` by default. Point it elsewhere with:
+
+```bash
+REWIND_DB_PATH=/var/lib/rewind/rewind.db
+```
+
+The test suite uses this to run against a temporary database, so `npm test` never writes to `data/rewind.db`.
+
+---
+
+## Workspace Settings
+
+`/settings` (and `GET`/`PUT /api/settings`) holds rules shared by everyone using this Rewind:
+
+- **Extra headers and JSON fields to redact.** Applied by `POST /api/events` before an event is stored, to request and response headers and to named fields at any depth in payloads and response bodies. They only add to the built-in redaction; nothing here can make Rewind store a credential it would otherwise redact.
+- **Default dependency mode** for experiments that do not choose one: `recorded` or `blocked`. `live` is never a default.
+
+---
+
 ## Verification CLI
 
 `npm run verify` talks to the Rewind server at:
@@ -1443,30 +1518,43 @@ rewind/
 │   │   │   ├── events/
 │   │   │   ├── executions/          executions, graph, compare, capsule, invariants, investigation
 │   │   │   ├── fingerprints/
+│   │   │   ├── incidents/           incidents and their executions
 │   │   │   ├── invariants/
 │   │   │   ├── replay/
 │   │   │   ├── replays/             history and replay plans
+│   │   │   ├── search/              command palette search
+│   │   │   ├── settings/            workspace settings
+│   │   │   ├── stream/              live Server-Sent Events
 │   │   │   ├── test-capture/
 │   │   │   ├── test-generator/
 │   │   │   ├── test-runner/
 │   │   │   ├── verifications/
 │   │   │   └── webhooks/
+│   │   ├── page.tsx                 Overview
 │   │   ├── capsules/
-│   │   ├── events/
-│   │   ├── executions/              list, graph, compare, capsule
+│   │   ├── events/                  raw events table
+│   │   ├── executions/              list, workspace, compare, capsule
 │   │   ├── fingerprints/
+│   │   ├── incidents/
 │   │   ├── lab/                     Replay Lab
 │   │   ├── replays/
+│   │   ├── settings/
 │   │   ├── timeline/
 │   │   └── verifications/
 │   │
 │   ├── components/
 │   │   ├── capsules/
-│   │   ├── dashboard/
+│   │   ├── dashboard/               events table and explorer
 │   │   ├── events/
-│   │   ├── executions/              invariants and investigation panels
+│   │   ├── executions/              graph, filters, side-by-side diff, panels
+│   │   ├── fingerprints/
 │   │   ├── icons/
-│   │   ├── lab/
+│   │   ├── incidents/
+│   │   ├── lab/                     experiment builder, JSON editor
+│   │   ├── overview/
+│   │   ├── settings/
+│   │   ├── shell/                   sidebar, top bar, command palette, live tail
+│   │   ├── ui/                      shared primitives
 │   │   └── verifications/
 │   │
 │   └── lib/
@@ -1483,12 +1571,21 @@ rewind/
 │       ├── execution-diff.ts / execution-compare.ts
 │       ├── invariants.ts / invariant-store.ts
 │       ├── capsule.ts / capsule-store.ts / secret-scan.ts / redaction.ts
-│       ├── verification.ts / investigation.ts
+│       ├── verification.ts / verification-report.ts / investigation.ts
+│       ├── execution-filter.ts      executions query language (pure)
+│       ├── payload-path.ts          payload paths and edits (browser-safe)
+│       ├── search.ts / live.ts / settings.ts / incidents.ts
+│       ├── overview.ts / onboarding.ts / fingerprint-history.ts
+│       ├── format.ts / preferences.ts
 │       └── test-generator.ts / test-runner.ts / test-runs.ts
 │
 ├── scripts/
 │   ├── seed.ts
 │   └── rewind-verify.ts             npm run verify
+│
+├── docs/
+│   ├── HANDOFF.md
+│   └── ci/rewind-verify.yml         example GitHub Actions workflow
 │
 ├── tests/                           unit and integration tests (Vitest)
 │
@@ -1557,6 +1654,9 @@ Execution ── 1:N ── Event ── edges (parent_of) ── Event
     └── Capsule import (when imported)
 
 Verification run ── 1:N ── results (one per replayed execution)
+
+Incident ── N:M ── Execution
+Settings (key/value)
 ```
 
 All tables live in the same SQLite database. Schema changes are applied at startup by additive, idempotent migrations (`src/lib/db-migrations.ts`): columns and tables are only ever added, existing rows are preserved, and the database is never deleted.
@@ -1816,7 +1916,7 @@ Potential future work includes:
 - shared events
 - permissions
 - comments
-- incident workflows
+- incident workflows beyond grouping, notes and status
 
 These capabilities are intentionally outside the current MVP.
 
