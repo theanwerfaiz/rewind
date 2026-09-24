@@ -21,6 +21,7 @@ export type RewindEvent = {
   source?: string | null;
 
   traceId?: string | null;
+  spanId?: string | null;
   requestId?: string | null;
   sessionId?: string | null;
   userId?: string | null;

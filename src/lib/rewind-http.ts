@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+import { extractCorrelationIds } from "@/lib/correlation";
 import type { RewindHttpMetadata } from "@/lib/event-metadata";
 import { rewind } from "@/lib/rewind";
 
@@ -221,7 +222,7 @@ async function captureHttpEvent(
       status: eventStatus,
       duration: `${durationMs}ms`,
       source: "next-http",
-      requestId: request.headers.get("x-request-id") ?? undefined,
+      ...extractCorrelationIds(request.headers),
       metadata,
       payload,
     });

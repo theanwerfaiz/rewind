@@ -447,4 +447,108 @@ describe("withRewindCapture", () => {
 
     captureMock.mockRestore();
   });
+
+  it("captures all five correlation IDs from x-* headers", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_correlation",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "http.request",
+      title: "POST /api/example",
+      status: "success",
+    });
+
+    const handler = withRewindCapture(
+      async () => new Response(null, { status: 204 }),
+    );
+
+    await handler(
+      createRequest(
+        {
+          message: "correlated",
+        },
+        {
+          "X-Request-Id": "req_corr",
+          "X-Trace-Id": "trace_corr",
+          "X-Span-Id": "span_corr",
+          "X-Session-Id": "sess_corr",
+          "X-User-Id": "user_corr",
+        },
+      ),
+    );
+
+    expect(captureMock).toHaveBeenCalledTimes(1);
+
+    expect(captureMock.mock.calls[0][0]).toMatchObject({
+      requestId: "req_corr",
+      traceId: "trace_corr",
+      spanId: "span_corr",
+      sessionId: "sess_corr",
+      userId: "user_corr",
+    });
+  });
+
+  it("captures trace and span IDs parsed from a W3C traceparent", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_traceparent",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "http.request",
+      title: "POST /api/example",
+      status: "success",
+    });
+
+    const handler = withRewindCapture(
+      async () => new Response(null, { status: 204 }),
+    );
+
+    await handler(
+      createRequest(
+        {
+          message: "traced",
+        },
+        {
+          traceparent:
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        },
+      ),
+    );
+
+    const capturedInput = captureMock.mock.calls[0][0];
+
+    expect(capturedInput.traceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+
+    expect(capturedInput.spanId).toBe("00f067aa0ba902b7");
+  });
+
+  it("omits correlation IDs when no correlation headers are sent", async () => {
+    const captureMock = vi.spyOn(rewind, "capture").mockResolvedValue({
+      id: "evt_no_correlation",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "http.request",
+      title: "POST /api/example",
+      status: "success",
+    });
+
+    const handler = withRewindCapture(
+      async () => new Response(null, { status: 204 }),
+    );
+
+    await handler(
+      createRequest(
+        {
+          message: "plain",
+        },
+        {
+          traceparent: "invalid",
+        },
+      ),
+    );
+
+    const capturedInput = captureMock.mock.calls[0][0];
+
+    expect(capturedInput.traceId).toBeUndefined();
+    expect(capturedInput.spanId).toBeUndefined();
+    expect(capturedInput.requestId).toBeUndefined();
+    expect(capturedInput.sessionId).toBeUndefined();
+    expect(capturedInput.userId).toBeUndefined();
+  });
 });

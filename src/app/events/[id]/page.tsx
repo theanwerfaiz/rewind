@@ -143,6 +143,8 @@ export default async function EventDetailsPage({
 
               <InfoRow label="Trace ID" value={event.traceId ?? "—"} />
 
+              <InfoRow label="Span ID" value={event.spanId ?? "—"} />
+
               <InfoRow label="Session ID" value={event.sessionId ?? "—"} />
 
               <InfoRow label="User ID" value={event.userId ?? "—"} />

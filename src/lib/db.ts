@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
+import { migrateDatabase } from "@/lib/db-migrations";
+
 const dataDirectory = path.join(process.cwd(), "data");
 
 if (!fs.existsSync(dataDirectory)) {
@@ -79,5 +81,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_replays_timestamp
     ON replays(timestamp);
 `);
+
+migrateDatabase(db);
 
 export default db;

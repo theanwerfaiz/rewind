@@ -10,6 +10,7 @@ type EventRow = {
   duration: string | null;
   source: string | null;
   trace_id: string | null;
+  span_id: string | null;
   request_id: string | null;
   session_id: string | null;
   user_id: string | null;
@@ -41,6 +42,7 @@ function mapEvent(row: EventRow): RewindEvent {
     source: row.source,
 
     traceId: row.trace_id,
+    spanId: row.span_id,
     requestId: row.request_id,
     sessionId: row.session_id,
     userId: row.user_id,
@@ -65,6 +67,7 @@ export function getEvents(): RewindEvent[] {
         duration,
         source,
         trace_id,
+        span_id,
         request_id,
         session_id,
         user_id,
@@ -93,6 +96,7 @@ export function getEventById(id: string): RewindEvent | null {
         duration,
         source,
         trace_id,
+        span_id,
         request_id,
         session_id,
         user_id,

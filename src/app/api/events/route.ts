@@ -12,6 +12,7 @@ type CreateEventInput = {
   duration?: string;
   source?: string;
   traceId?: string;
+  spanId?: string;
   requestId?: string;
   sessionId?: string;
   userId?: string;
@@ -29,6 +30,7 @@ function serializeEvent(row: Record<string, any>) {
     duration: row.duration,
     source: row.source,
     traceId: row.trace_id,
+    spanId: row.span_id,
     requestId: row.request_id,
     sessionId: row.session_id,
     userId: row.user_id,
@@ -36,6 +38,20 @@ function serializeEvent(row: Record<string, any>) {
     payload: row.payload ? JSON.parse(row.payload) : undefined,
     createdAt: row.created_at,
   };
+}
+
+function toOptionalId(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -67,6 +83,9 @@ export async function GET(request: NextRequest) {
               title LIKE ?
               OR id LIKE ?
               OR request_id LIKE ?
+              OR trace_id LIKE ?
+              OR span_id LIKE ?
+              OR session_id LIKE ?
               OR user_id LIKE ?
             )
           ORDER BY timestamp DESC
@@ -75,10 +94,7 @@ export async function GET(request: NextRequest) {
         )
         .all(
           type,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
+          ...Array(7).fill(`%${search}%`),
           limit,
         ) as Record<string, any>[];
     } else if (search) {
@@ -92,17 +108,16 @@ export async function GET(request: NextRequest) {
             OR id LIKE ?
             OR type LIKE ?
             OR request_id LIKE ?
+            OR trace_id LIKE ?
+            OR span_id LIKE ?
+            OR session_id LIKE ?
             OR user_id LIKE ?
           ORDER BY timestamp DESC
           LIMIT ?
         `,
         )
         .all(
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
-          `%${search}%`,
+          ...Array(8).fill(`%${search}%`),
           limit,
         ) as Record<string, any>[];
     } else if (type) {
@@ -192,6 +207,7 @@ export async function POST(request: NextRequest) {
         duration,
         source,
         trace_id,
+        span_id,
         request_id,
         session_id,
         user_id,
@@ -208,6 +224,7 @@ export async function POST(request: NextRequest) {
         @duration,
         @source,
         @trace_id,
+        @span_id,
         @request_id,
         @session_id,
         @user_id,
@@ -225,10 +242,11 @@ export async function POST(request: NextRequest) {
       status,
       duration: body.duration ?? null,
       source: body.source ?? null,
-      trace_id: body.traceId ?? null,
-      request_id: body.requestId ?? null,
-      session_id: body.sessionId ?? null,
-      user_id: body.userId ?? null,
+      trace_id: toOptionalId(body.traceId),
+      span_id: toOptionalId(body.spanId),
+      request_id: toOptionalId(body.requestId),
+      session_id: toOptionalId(body.sessionId),
+      user_id: toOptionalId(body.userId),
       metadata: body.metadata ? JSON.stringify(body.metadata) : null,
       payload: body.payload !== undefined ? JSON.stringify(body.payload) : null,
       created_at: createdAt,

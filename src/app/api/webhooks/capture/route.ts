@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { extractCorrelationIds } from "@/lib/correlation";
 import { rewind } from "@/lib/rewind";
 
 export const runtime = "nodejs";
@@ -26,7 +27,9 @@ function captureHeaders(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const requestId = `req_${crypto.randomUUID()}`;
+    const correlationIds = extractCorrelationIds(request.headers);
+
+    const requestId = correlationIds.requestId ?? `req_${crypto.randomUUID()}`;
 
     const payload = await request.json();
 
@@ -40,6 +43,8 @@ export async function POST(request: NextRequest) {
       status: "success",
 
       source: "webhook",
+
+      ...correlationIds,
 
       requestId,
 

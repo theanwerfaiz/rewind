@@ -44,6 +44,7 @@ export function EventsExplorer({ events }: EventsExplorerProps) {
         event.source,
         event.requestId,
         event.traceId,
+        event.spanId,
         event.sessionId,
         event.userId,
       ]
