@@ -28,6 +28,24 @@ import {
 } from "@/lib/invariants";
 import { describeMutation } from "@/lib/mutations";
 import { getReplayByResultExecutionId, getReplaysForEvent } from "@/lib/replays";
+import type { Metadata } from "next";
+import { getExecutionById } from "@/lib/executions";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const found = getExecutionById(id);
+
+  return {
+    title: found
+      ? `${found.execution.rootTitle ?? "Execution"}${found.execution.status === "error" ? " (failed)" : ""}`
+      : "Execution not found",
+  };
+}
 
 export default async function ExecutionPage({
   params,

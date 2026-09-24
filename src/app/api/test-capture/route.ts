@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonBody } from "@/lib/request-body";
 
 import { withRewindCapture } from "@/lib/rewind-http";
 
 async function handler(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
 
     return NextResponse.json({
       success: true,
@@ -16,7 +17,8 @@ async function handler(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Test capture failed",
+        // Details stay in the server log; they can name paths or internals.
+        error: "Test capture failed.",
       },
       {
         status: 500,

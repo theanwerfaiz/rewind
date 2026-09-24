@@ -1,12 +1,12 @@
-import fs from "node:fs";
-
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
+import { SignOutButton } from "@/components/auth/LoginForm";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { WorkspaceSettingsForm } from "@/components/settings/WorkspaceSettingsForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel } from "@/components/ui/primitives";
+import { getAccessToken } from "@/lib/access";
 import db from "@/lib/db";
 import { REDACTED_HEADERS } from "@/lib/redaction";
 import { getSettings } from "@/lib/settings";
@@ -45,15 +45,13 @@ function getStorage() {
     }
   });
 
-  let bytes = 0;
+  // Asked of SQLite rather than the filesystem, so the build does not
+  // trace the whole project; excludes the write-ahead log.
+  const pageCount = db.pragma("page_count", { simple: true }) as number;
 
-  for (const suffix of ["", "-wal"]) {
-    try {
-      bytes += fs.statSync(`${db.name}${suffix}`).size;
-    } catch {
-      // No write-ahead log yet.
-    }
-  }
+  const pageSize = db.pragma("page_size", { simple: true }) as number;
+
+  const bytes = pageCount * pageSize;
 
   return { counts, bytes, path: db.name };
 }
@@ -82,6 +80,32 @@ export default async function SettingsPage() {
             settings={settings}
             builtInHeaders={[...REDACTED_HEADERS]}
           />
+        </Panel>
+
+        <Panel
+          title="Access"
+          description={
+            getAccessToken()
+              ? "Protected: pages and APIs need REWIND_ACCESS_TOKEN"
+              : "Open: anyone who can reach this server can use it"
+          }
+        >
+          {getAccessToken() ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted">
+                Capture clients and <code className="font-mono">npm run verify</code> send
+                the token as a bearer header; webhook senders add{" "}
+                <code className="font-mono">?token=…</code> to the capture URL.
+              </p>
+              <SignOutButton />
+            </div>
+          ) : (
+            <p className="text-sm text-muted">
+              Fine on your own machine. Before exposing Rewind on a network, set{" "}
+              <code className="font-mono">REWIND_ACCESS_TOKEN</code> on the Rewind server and
+              on every app that captures to it.
+            </p>
+          )}
         </Panel>
 
         <Panel title="Appearance" description="Saved in this browser only">

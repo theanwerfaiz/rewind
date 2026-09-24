@@ -5,6 +5,7 @@ import { EventIcon } from "@/components/ui/EventIcon";
 import { StatusDot } from "@/components/ui/StatusBadge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Stat } from "@/components/ui/primitives";
+import type { Metadata } from "next";
 
 type TimelineEvent = {
   id: string;
@@ -79,6 +80,10 @@ function groupEvents(events: TimelineEvent[]) {
     events,
   }));
 }
+
+export const metadata: Metadata = {
+  title: "Timeline",
+};
 
 export default async function TimelinePage() {
   const events = await getTimelineEvents();

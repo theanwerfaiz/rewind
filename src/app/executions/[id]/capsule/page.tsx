@@ -6,6 +6,8 @@ import { hasBlockingFindings } from "@/lib/secret-scan";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/StatusBadge";
 import { shortId } from "@/lib/format";
+import type { Metadata } from "next";
+import { getExecutionById } from "@/lib/executions";
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -17,6 +19,20 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <div className="mt-1.5 font-mono text-lg text-ink">{value}</div>
     </div>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const found = getExecutionById(id);
+
+  return {
+    title: found ? `Capsule · ${found.execution.rootTitle ?? id}` : "Execution not found",
+  };
 }
 
 export default async function ExecutionCapsulePage({

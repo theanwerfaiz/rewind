@@ -164,7 +164,9 @@ export function JsonBlock({
   maxHeight?: string;
 }) {
   return (
+    // Focusable so keyboard users can scroll a long block.
     <pre
+      tabIndex={0}
       className={`${maxHeight} overflow-auto rounded-lg border border-line bg-canvas p-3 font-mono text-xs leading-5 text-ink-2`}
     >
       {value === undefined ? "—" : JSON.stringify(value, null, 2)}

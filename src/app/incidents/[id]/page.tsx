@@ -13,6 +13,21 @@ import { Panel } from "@/components/ui/primitives";
 import { Badge, StatusDot } from "@/components/ui/StatusBadge";
 import { formatDateTime, formatRelative, formatSpan, shortId } from "@/lib/format";
 import { getIncidentById } from "@/lib/incidents";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const found = getIncidentById(id);
+
+  return {
+    title: found ? `Incident · ${found.incident.title}` : "Incident not found",
+  };
+}
 
 export default async function IncidentPage({
   params,

@@ -1,0 +1,3 @@
+# Rewind shows captured request data; keep it out of search engines.
+User-agent: *
+Disallow: /

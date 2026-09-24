@@ -13,6 +13,7 @@ import { SideBySideDiff } from "@/components/executions/SideBySideDiff";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { IdChip } from "@/components/ui/IdChip";
 import { shortId } from "@/lib/format";
+import type { Metadata } from "next";
 
 const OUTCOMES: Record<
   DiffOutcome,
@@ -164,7 +165,7 @@ function ChangedEvent({ change }: { change: EventChange }) {
         ))}
       </div>
 
-      <dl className="mt-3 space-y-1 font-mono text-xs text-ink-2">
+      <div className="mt-3 space-y-1 font-mono text-xs text-ink-2">
         {change.status && (
           <div>
             status: {change.status.from} → {change.status.to}
@@ -196,10 +197,14 @@ function ChangedEvent({ change }: { change: EventChange }) {
             +{fieldChanges.length - 12} more fields
           </div>
         )}
-      </dl>
+      </div>
     </li>
   );
 }
+
+export const metadata: Metadata = {
+  title: "Compare executions",
+};
 
 export default async function CompareExecutionsPage({
   searchParams,
@@ -255,7 +260,7 @@ export default async function CompareExecutionsPage({
             {outcome.title}
           </h2>
 
-          <p className="mt-1 text-sm opacity-80">{outcome.detail}</p>
+          <p className="mt-1 text-sm">{outcome.detail}</p>
 
           {diff.firstDivergence && (
             <p className="mt-4 text-sm">

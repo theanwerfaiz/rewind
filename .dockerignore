@@ -7,4 +7,4 @@ docker-compose.yml
 data
 rewind-test-runs
 *.log
-npm-debug.log*
+npm-debug.log*.env*

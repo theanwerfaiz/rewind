@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonObject } from "@/lib/request-body";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -26,12 +27,18 @@ export async function POST(request: NextRequest) {
   let body: TestRunnerRequest;
 
   try {
-    body = (await request.json()) as TestRunnerRequest;
+    const parsed = await readJsonObject(request);
+
+    if (!parsed) {
+      throw new Error("Not a JSON object.");
+    }
+
+    body = parsed as TestRunnerRequest;
   } catch {
     return NextResponse.json(
       {
         success: false,
-        error: "Invalid JSON request body.",
+        error: "Request body must be a JSON object.",
       },
       {
         status: 400,

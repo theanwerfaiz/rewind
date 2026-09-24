@@ -13,6 +13,21 @@ import { getExecutionsByFingerprint } from "@/lib/executions";
 import { getFingerprintTrend, getLastKnownGood } from "@/lib/fingerprint-history";
 import { getFingerprintById } from "@/lib/fingerprints";
 import { formatDateTime, formatRelative, formatSpan, shortId } from "@/lib/format";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const fingerprint = getFingerprintById(id);
+
+  return {
+    title: fingerprint ? `Failure · ${fingerprint.signature.message}` : "Failure not found",
+  };
+}
 
 export default async function FingerprintPage({
   params,
@@ -105,22 +120,20 @@ export default async function FingerprintPage({
         </Panel>
 
         <Panel title="Signature">
-          <dl className="space-y-3 text-xs">
+          <dl className="grid grid-cols-2 gap-3 text-xs [&>div:first-child]:col-span-2 [&>div:last-child]:col-span-2">
             <div>
               <dt className="text-faint">Endpoint</dt>
               <dd className="mt-0.5 break-all font-mono text-ink-2">{signature.endpoint}</dd>
             </div>
 
-            <div className="flex gap-6">
-              <div>
-                <dt className="text-faint">Origin</dt>
-                <dd className="mt-0.5 font-mono text-ink-2">{signature.originType}</dd>
-              </div>
+            <div>
+              <dt className="text-faint">Origin</dt>
+              <dd className="mt-0.5 font-mono text-ink-2">{signature.originType}</dd>
+            </div>
 
-              <div>
-                <dt className="text-faint">HTTP status</dt>
-                <dd className="mt-0.5 font-mono text-ink-2">{signature.status ?? "—"}</dd>
-              </div>
+            <div>
+              <dt className="text-faint">HTTP status</dt>
+              <dd className="mt-0.5 font-mono text-ink-2">{signature.status ?? "—"}</dd>
             </div>
 
             <div>

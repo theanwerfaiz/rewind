@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BodyTooLargeError, readTextBody } from "@/lib/request-body";
 
 import { validateCapsule } from "@/lib/capsule";
 import { getCapsuleImports, importCapsule } from "@/lib/capsule-store";
@@ -36,9 +37,21 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const text = await request.text();
+    let text = "";
 
-    if (new TextEncoder().encode(text).byteLength > MAX_CAPSULE_BYTES) {
+    let tooLarge = false;
+
+    try {
+      text = await readTextBody(request, MAX_CAPSULE_BYTES);
+    } catch (error) {
+      if (!(error instanceof BodyTooLargeError)) {
+        throw error;
+      }
+
+      tooLarge = true;
+    }
+
+    if (tooLarge) {
       return NextResponse.json(
         {
           errors: ["Capsules larger than 10 MiB cannot be imported."],

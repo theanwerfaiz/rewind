@@ -18,8 +18,9 @@
 
   --ink: #e7ecf4;
   --ink-2: #aeb7c6;
-  --muted: #8691a4;
-  --faint: #5d687a;
+  /* Muted and faint both meet WCAG AA (4.5:1) on every surface. */
+  --muted: #97a1b3;
+  --faint: #8691a4;
 
   --accent: #7c98ff;
   --accent-ink: #0a1024;
@@ -51,19 +52,19 @@
 
   --ink: #0e1320;
   --ink-2: #3b4456;
-  --muted: #5b6578;
-  --faint: #8a93a3;
+  --muted: #4f596b;
+  --faint: #5a6375;
 
-  --accent: #3d5cf5;
+  --accent: #2f4ad6;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(61, 92, 245, 0.1);
+  --accent-soft: rgba(47, 74, 214, 0.1);
   --recorder: #e8640c;
 
-  --success: #0f8f5f;
-  --success-soft: rgba(15, 143, 95, 0.1);
-  --failure: #d33a2f;
-  --failure-soft: rgba(211, 58, 47, 0.09);
-  --warning: #9a6300;
+  --success: #086e4a;
+  --success-soft: rgba(8, 110, 74, 0.1);
+  --failure: #b8302a;
+  --failure-soft: rgba(184, 48, 42, 0.09);
+  --warning: #8a5600;
   --warning-soft: rgba(214, 150, 0, 0.13);
 }
 
@@ -81,19 +82,19 @@
 
     --ink: #0e1320;
     --ink-2: #3b4456;
-    --muted: #5b6578;
-    --faint: #8a93a3;
+    --muted: #4f596b;
+    --faint: #5a6375;
 
-    --accent: #3d5cf5;
+    --accent: #2f4ad6;
     --accent-ink: #ffffff;
-    --accent-soft: rgba(61, 92, 245, 0.1);
+    --accent-soft: rgba(47, 74, 214, 0.1);
     --recorder: #e8640c;
 
-    --success: #0f8f5f;
-    --success-soft: rgba(15, 143, 95, 0.1);
-    --failure: #d33a2f;
-    --failure-soft: rgba(211, 58, 47, 0.09);
-    --warning: #9a6300;
+    --success: #086e4a;
+    --success-soft: rgba(8, 110, 74, 0.1);
+    --failure: #b8302a;
+    --failure-soft: rgba(184, 48, 42, 0.09);
+    --warning: #8a5600;
     --warning-soft: rgba(214, 150, 0, 0.13);
   }
 }

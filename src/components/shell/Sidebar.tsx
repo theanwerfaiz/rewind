@@ -52,6 +52,13 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar() {
+  const pathname = usePathname();
+
+  // The sign-in page stands alone.
+  if (pathname === "/login") {
+    return null;
+  }
+
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-sidebar lg:flex">
       <div className="flex h-14 items-center border-b border-line px-5">
@@ -70,7 +77,7 @@ export function Sidebar() {
           Recording locally
         </div>
 
-        <div className="mt-1 text-xs text-faint">SQLite · data/rewind.db</div>
+        <div className="mt-1 text-xs text-faint">Data stays in your SQLite file</div>
       </div>
     </aside>
   );

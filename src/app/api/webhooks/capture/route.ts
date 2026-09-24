@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { redactUrl } from "@/lib/redaction";
+import { BodyTooLargeError, readJsonBody } from "@/lib/request-body";
 
 import { extractCorrelationIds } from "@/lib/correlation";
 import {
@@ -29,13 +31,36 @@ function captureHeaders(request: NextRequest) {
   return headers;
 }
 
+function redactedPath(url: URL) {
+  const redacted = new URL(redactUrl(url));
+
+  return redacted.pathname + redacted.search;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const correlationIds = extractCorrelationIds(request.headers);
 
     const requestId = correlationIds.requestId ?? `req_${crypto.randomUUID()}`;
 
-    const payload = await request.json();
+    let payload: unknown;
+
+    try {
+      payload = await readJsonBody(request);
+    } catch (error) {
+      if (error instanceof BodyTooLargeError) {
+        throw error;
+      }
+
+      return NextResponse.json(
+        {
+          error: "Webhook body must be valid JSON.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     const headers = captureHeaders(request);
 
@@ -60,7 +85,10 @@ export async function POST(request: NextRequest) {
 
         method: request.method,
 
-        path: request.nextUrl.pathname + request.nextUrl.search,
+        // Query parameters that look like credentials (including the
+        // ?token= a webhook sender uses when access control is on) are
+        // redacted before the path is stored.
+        path: redactedPath(request.nextUrl),
 
         headers,
       },
@@ -82,8 +110,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Webhook capture failed.",
+        // Details stay in the server log; they can name paths or internals.
+        error: "Webhook capture failed.",
       },
       {
         status: 500,

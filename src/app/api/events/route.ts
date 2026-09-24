@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonObject } from "@/lib/request-body";
 import db from "@/lib/db";
 import { recordParentEdge } from "@/lib/event-edges";
 import { recordExecutionEvent } from "@/lib/executions";
@@ -197,7 +198,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CreateEventInput;
+    const parsed = await readJsonObject(request);
+
+    if (!parsed) {
+      return NextResponse.json(
+        {
+          error: "Request body must be a JSON object.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const body = parsed as CreateEventInput;
 
     if (!body.type || typeof body.type !== "string") {
       return NextResponse.json(

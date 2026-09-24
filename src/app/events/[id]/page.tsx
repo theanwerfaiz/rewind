@@ -13,6 +13,7 @@ import { Badge, StatusBadge } from "@/components/ui/StatusBadge";
 import { IdChip } from "@/components/ui/IdChip";
 import { ButtonLink } from "@/components/ui/primitives";
 import { shortId } from "@/lib/format";
+import type { Metadata } from "next";
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
@@ -36,6 +37,20 @@ function replayStatusClass(status: number) {
   }
 
   return "bg-hover text-ink-2";
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  const event = getEventById(id);
+
+  return {
+    title: event ? event.title : "Event not found",
+  };
 }
 
 export default async function EventDetailsPage({

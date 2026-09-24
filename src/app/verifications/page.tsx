@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { VerifyButton } from "@/components/verifications/VerifyButton";
 import { getVerificationRuns } from "@/lib/verification";
 import { PageHeader } from "@/components/ui/PageHeader";
+import type { Metadata } from "next";
 
 const OUTCOME_LABELS: Record<string, string> = {
   fixed: "fixed",
@@ -23,6 +24,10 @@ function formatDateTime(timestamp: string) {
     second: "2-digit",
   });
 }
+
+export const metadata: Metadata = {
+  title: "Verifications",
+};
 
 export default async function VerificationsPage() {
   await connection();

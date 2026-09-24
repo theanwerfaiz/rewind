@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readJsonObject } from "@/lib/request-body";
 import db from "@/lib/db";
 import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { generateTest } from "@/lib/test-generator";
@@ -38,7 +39,18 @@ function parseJson(value: string | null) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body) {
+      return NextResponse.json(
+        {
+          error: "Request body must be a JSON object.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
     const eventId = body.eventId;
 
@@ -159,8 +171,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Test generation failed",
+        // Details stay in the server log; they can name paths or internals.
+        error: "Test generation failed.",
       },
       {
         status: 500,

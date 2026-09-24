@@ -1,4 +1,4 @@
-import { CheckCircle2, Radio } from "lucide-react";
+import { CheckCircle2, CircleAlert, CircleDot, Radio } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 
@@ -11,6 +11,25 @@ import { Badge, StatusDot } from "@/components/ui/StatusBadge";
 import { formatRelative, formatSpan } from "@/lib/format";
 import { getOnboardingSteps } from "@/lib/onboarding";
 import { getOverview, type AttentionItem } from "@/lib/overview";
+import type { Metadata } from "next";
+
+function AttentionIcon({ item }: { item: AttentionItem }) {
+  const Icon =
+    item.status.kind === "fixed"
+      ? CheckCircle2
+      : item.status.kind === "new"
+        ? CircleDot
+        : CircleAlert;
+
+  const tone =
+    item.status.kind === "fixed"
+      ? "text-success"
+      : item.status.kind === "new"
+        ? "text-accent"
+        : "text-failure";
+
+  return <Icon aria-hidden="true" size={16} className={`mt-0.5 shrink-0 ${tone}`} />;
+}
 
 function AttentionBadge({ item }: { item: AttentionItem }) {
   switch (item.status.kind) {
@@ -35,6 +54,10 @@ const SETUP_SNIPPET = `import { withRewindCapture } from "@/lib/rewind-http";
 export const POST = withRewindCapture(async (request) => {
   return Response.json({ ok: true });
 });`;
+
+export const metadata: Metadata = {
+  title: "Overview",
+};
 
 export default async function OverviewPage() {
   await connection();
@@ -139,18 +162,9 @@ export default async function OverviewPage() {
                 <li key={item.fingerprint.id}>
                   <Link
                     href={`/fingerprints/${item.fingerprint.id}`}
-                    className="flex items-stretch gap-3 px-4 py-3 transition hover:bg-raised"
+                    className="flex items-start gap-3 px-4 py-3 transition hover:bg-raised"
                   >
-                    <span
-                      aria-hidden="true"
-                      className={`w-0.5 shrink-0 rounded-full ${
-                        item.status.kind === "fixed"
-                          ? "bg-success"
-                          : item.status.kind === "new"
-                            ? "bg-accent"
-                            : "bg-failure"
-                      }`}
-                    />
+                    <AttentionIcon item={item} />
 
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm text-ink">

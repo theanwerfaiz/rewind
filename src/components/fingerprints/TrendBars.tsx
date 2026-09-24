@@ -24,7 +24,7 @@ export function TrendBars({ days }: { days: DayBucket[] }) {
     <div>
       <div className="relative">
         <div
-          role="img"
+          role="group"
           aria-label={`Occurrences per day over ${days.length} days`}
           className="flex h-24 items-end gap-1"
         >
@@ -32,6 +32,7 @@ export function TrendBars({ days }: { days: DayBucket[] }) {
             <div
               key={bucket.day}
               tabIndex={0}
+              role="img"
               aria-label={`${dayLabel(bucket.day)}: ${bucket.count}`}
               onPointerEnter={() => setActive(index)}
               onPointerLeave={() => setActive(null)}
