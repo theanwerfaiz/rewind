@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { JsonEditor } from "@/components/lab/JsonEditor";
+import {
+  applyPayloadMutations,
+  payloadMutationsFromEdit,
+  type PayloadMutation,
+} from "@/lib/payload-path";
 
 type Target = "payload" | "header" | "query" | "dependency";
 
@@ -106,13 +113,58 @@ function toMutation(row: Row) {
 const inputClass =
   "h-9 min-w-0 rounded-lg border border-line bg-canvas px-2.5 font-mono text-xs text-ink outline-none transition placeholder:text-faint focus:border-accent";
 
+type PayloadEdit =
+  | { ok: true; mutations: PayloadMutation[] }
+  | { ok: false; error: string };
+
+function readPayloadEdit(original: unknown, text: string): PayloadEdit {
+  let edited: unknown;
+
+  try {
+    edited = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "The payload is not valid JSON." };
+  }
+
+  const result = payloadMutationsFromEdit(original, edited);
+
+  return "error" in result
+    ? { ok: false, error: result.error }
+    : { ok: true, mutations: result.mutations };
+}
+
+function describe(mutation: ReturnType<typeof toMutation>) {
+  if (mutation.target === "dependency") {
+    return mutation.op === "remove"
+      ? `${mutation.match} unavailable`
+      : `${mutation.match} → ${JSON.stringify("override" in mutation ? mutation.override : null)}`;
+  }
+
+  const subject =
+    "path" in mutation
+      ? `payload.${mutation.path}`
+      : `${mutation.target}.${"name" in mutation ? mutation.name : ""}`;
+
+  return mutation.op === "remove"
+    ? `remove ${subject}`
+    : `${subject} = ${JSON.stringify("value" in mutation ? mutation.value : null)}`;
+}
+
 export function ExperimentBuilder({
   eventId,
   dependencies,
+  original,
 }: {
   eventId: string;
   /** Dependency calls recorded in the original execution. */
   dependencies: string[];
+  /** The captured request, redacted, for the editor and the preview. */
+  original: {
+    method: string;
+    path: string;
+    headers: Record<string, string>;
+    payload: unknown;
+  };
 }) {
   const router = useRouter();
 
@@ -122,6 +174,77 @@ export function ExperimentBuilder({
     useState<DependencyMode>("recorded");
 
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
+
+  const canEditJson =
+    typeof original.payload === "object" && original.payload !== null;
+
+  const originalText = useMemo(
+    () => JSON.stringify(original.payload ?? {}, null, 2),
+    [original.payload],
+  );
+
+  const [mode, setMode] = useState<"fields" | "json">("fields");
+
+  const [payloadText, setPayloadText] = useState(originalText);
+
+  const [editorKey, setEditorKey] = useState(0);
+
+  const payloadEdit = useMemo<PayloadEdit>(
+    () =>
+      mode === "json"
+        ? readPayloadEdit(original.payload, payloadText)
+        : { ok: true, mutations: [] },
+    [mode, original.payload, payloadText],
+  );
+
+  const mutations = useMemo(
+    () => [
+      ...(payloadEdit.ok ? payloadEdit.mutations : []),
+      ...rows.filter((row) => row.name.trim() !== "").map(toMutation),
+    ],
+    [payloadEdit, rows],
+  );
+
+  const preview = useMemo(() => {
+    const payloadMutations = mutations.filter(
+      (mutation): mutation is PayloadMutation =>
+        mutation.target === "payload" && "path" in mutation,
+    );
+
+    const headers = { ...original.headers };
+
+    const query = new URLSearchParams(original.path.split("?")[1] ?? "");
+
+    for (const mutation of mutations) {
+      if (mutation.target === "header" && "name" in mutation) {
+        for (const key of Object.keys(headers)) {
+          if (key.toLowerCase() === mutation.name.toLowerCase()) {
+            delete headers[key];
+          }
+        }
+
+        if (mutation.op === "set" && "value" in mutation) {
+          headers[mutation.name] = String(mutation.value);
+        }
+      }
+
+      if (mutation.target === "query" && "name" in mutation) {
+        if (mutation.op === "set" && "value" in mutation) {
+          query.set(mutation.name, String(mutation.value));
+        } else {
+          query.delete(mutation.name);
+        }
+      }
+    }
+
+    const search = query.toString();
+
+    return {
+      line: `${original.method} ${original.path.split("?")[0]}${search ? `?${search}` : ""}`,
+      headers,
+      payload: applyPayloadMutations(original.payload, payloadMutations),
+    };
+  }, [mutations, original]);
 
   const [running, setRunning] = useState(false);
 
@@ -136,13 +259,14 @@ export function ExperimentBuilder({
   }
 
   async function run() {
+    if (!payloadEdit.ok) {
+      setError(payloadEdit.error);
+      return;
+    }
+
     setRunning(true);
     setError(null);
     setResult(null);
-
-    const mutations = rows
-      .filter((row) => row.name.trim() !== "")
-      .map(toMutation);
 
     try {
       const response = await fetch("/api/replay", {
@@ -183,7 +307,7 @@ export function ExperimentBuilder({
   const resultOk = result !== null && result.status < 400;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-6 2xl:grid-cols-2">
       <section className="rounded-2xl border border-accent/20 bg-accent-soft p-5">
         <div className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
           Experiment
@@ -201,6 +325,65 @@ export function ExperimentBuilder({
           maxLength={120}
           className={`${inputClass} mt-4 w-full font-sans`}
         />
+
+        {canEditJson && (
+          <div className="mt-4">
+            <div
+              role="radiogroup"
+              aria-label="Payload editing"
+              className="inline-flex rounded-lg border border-line bg-canvas p-0.5 text-xs"
+            >
+              {(["fields", "json"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === value}
+                  onClick={() => setMode(value)}
+                  className={`rounded-md px-3 py-1.5 transition ${
+                    mode === value
+                      ? "bg-raised text-ink"
+                      : "text-muted hover:text-ink"
+                  }`}
+                >
+                  {value === "fields" ? "Mutations" : "Edit payload JSON"}
+                </button>
+              ))}
+            </div>
+
+            {mode === "json" && (
+              <div className="mt-3 space-y-2">
+                <JsonEditor
+                  key={editorKey}
+                  label="Experiment payload"
+                  initialValue={originalText}
+                  onChange={setPayloadText}
+                />
+
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className={payloadEdit.ok ? "text-muted" : "text-failure"}>
+                    {payloadEdit.ok
+                      ? `${payloadEdit.mutations.length} payload ${
+                          payloadEdit.mutations.length === 1 ? "change" : "changes"
+                        }, stored as mutations`
+                      : payloadEdit.error}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPayloadText(originalText);
+                      setEditorKey((key) => key + 1);
+                    }}
+                    className="shrink-0 whitespace-nowrap text-ink-2 transition hover:text-ink"
+                  >
+                    Reset to original
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 space-y-2">
           {rows.map((row) => (
@@ -373,6 +556,49 @@ export function ExperimentBuilder({
           <code>{"{}"}</code>); anything else is sent as text. With no
           mutations, this is a plain replay.
         </p>
+
+        <details className="group mt-4 rounded-xl border border-line bg-canvas">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs text-ink-2">
+            <span>
+              Request preview
+              <span className="ml-2 text-muted">
+                {mutations.length === 0
+                  ? "unchanged"
+                  : `${mutations.length} ${mutations.length === 1 ? "change" : "changes"}`}
+              </span>
+            </span>
+            <span className="text-muted transition group-open:rotate-90">›</span>
+          </summary>
+
+          <div className="space-y-3 border-t border-line p-3">
+            {mutations.length > 0 && (
+              <ul className="space-y-1">
+                {mutations.map((mutation, index) => (
+                  <li
+                    key={index}
+                    className="truncate rounded bg-accent-soft px-2 py-1 font-mono text-xs text-accent"
+                  >
+                    {describe(mutation)}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="font-mono text-xs text-ink">{preview.line}</div>
+
+            <pre className="max-h-40 overflow-auto font-mono text-xs leading-5 text-muted">
+              {Object.entries(preview.headers)
+                .map(([name, value]) => `${name}: ${value}`)
+                .join("\n")}
+            </pre>
+
+            <pre className="max-h-64 overflow-auto rounded-lg border border-line p-3 font-mono text-xs leading-5 text-ink-2">
+              {preview.payload === undefined
+                ? "(no body)"
+                : JSON.stringify(preview.payload, null, 2)}
+            </pre>
+          </div>
+        </details>
       </section>
 
       <section className="rounded-2xl border border-line bg-panel p-5">

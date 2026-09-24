@@ -9,6 +9,7 @@ import type {
   EventChangeKind,
 } from "@/lib/execution-diff";
 import type { RewindEvent } from "@/lib/mock-events";
+import { ComparePicker } from "@/components/executions/ComparePicker";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { IdChip } from "@/components/ui/IdChip";
 import { shortId } from "@/lib/format";
@@ -262,8 +263,18 @@ export default async function CompareExecutionsPage({
 
   const { original, candidate } = await searchParams;
 
-  if (typeof original !== "string" || typeof candidate !== "string") {
-    notFound();
+  if (
+    typeof original !== "string" ||
+    typeof candidate !== "string" ||
+    original === "" ||
+    candidate === ""
+  ) {
+    return (
+      <ComparePicker
+        original={typeof original === "string" ? original : undefined}
+        candidate={typeof candidate === "string" ? candidate : undefined}
+      />
+    );
   }
 
   const diff = compareExecutions(original, candidate);

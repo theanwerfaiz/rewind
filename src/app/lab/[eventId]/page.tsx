@@ -10,19 +10,9 @@ import { getReplaysForEvent } from "@/lib/replays";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/StatusBadge";
 import { ButtonLink } from "@/components/ui/primitives";
-import { shortId } from "@/lib/format";
+import { formatDateTime, shortId } from "@/lib/format";
 
 const REPLAYABLE_TYPES = new Set(["http.request", "webhook.received"]);
-
-function formatDateTime(timestamp: string) {
-  return new Date(timestamp).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
 
 function statusClass(status: number | undefined) {
   if (status === undefined) {
@@ -106,7 +96,7 @@ export default async function ReplayLabPage({
         }
       />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <section className="rounded-2xl border border-line bg-panel p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-2">
@@ -183,6 +173,12 @@ export default async function ReplayLabPage({
           <ExperimentBuilder
             eventId={event.id}
             dependencies={dependencyTitles}
+            original={{
+              method: metadata?.method ?? "POST",
+              path: metadata?.path ?? "/",
+              headers: metadata?.headers ?? {},
+              payload: event.payload,
+            }}
           />
         </div>
 

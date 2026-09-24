@@ -1,6 +1,8 @@
 import {
   Activity,
   AlertTriangle,
+  FlaskConical,
+  GitCompareArrows,
   GitBranch,
   LayoutDashboard,
   List,
@@ -32,6 +34,13 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
+    label: "Debug",
+    items: [
+      { label: "Replay Lab", href: "/lab", icon: FlaskConical },
+      { label: "Compare", href: "/executions/compare", icon: GitCompareArrows },
+    ],
+  },
+  {
     label: "Prevent",
     items: [
       { label: "Capsules", href: "/capsules", icon: Package },
@@ -48,10 +57,24 @@ export const NAVIGATION: NavGroup[] = [
   },
 ];
 
-export function isActive(pathname: string, href: string) {
+function matches(pathname: string, href: string) {
   if (href === "/") {
     return pathname === "/";
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** True when `href` is the most specific navigation item for the path. */
+export function isActive(pathname: string, href: string) {
+  if (!matches(pathname, href)) {
+    return false;
+  }
+
+  return !NAVIGATION.some((group) =>
+    group.items.some(
+      (item) =>
+        item.href.length > href.length && matches(pathname, item.href),
+    ),
+  );
 }

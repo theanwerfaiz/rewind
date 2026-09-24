@@ -172,3 +172,46 @@ export function getReplayByResultExecutionId(executionId: string) {
 
   return row ? serializeReplay(row) : null;
 }
+
+export type ExperimentSummary = Replay & {
+  /** Title of the captured request the experiment replayed. */
+  eventTitle: string | null;
+};
+
+/** The newest experiments across every captured request. */
+export function getRecentExperiments(limit = 20): ExperimentSummary[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        replays.id,
+        replays.event_id,
+        replays.timestamp,
+        replays.method,
+        replays.url,
+        replays.status,
+        replays.duration,
+        replays.payload,
+        replays.response_body,
+        replays.response_headers,
+        replays.created_at,
+        replays.label,
+        replays.mutations,
+        replays.source_execution_id,
+        replays.result_execution_id,
+        replays.dependency_mode,
+        events.title AS event_title
+      FROM replays
+      LEFT JOIN events
+        ON events.id = replays.event_id
+      ORDER BY replays.created_at DESC
+      LIMIT ?
+      `,
+    )
+    .all(limit) as (ReplayRow & { event_title: string | null })[];
+
+  return rows.map((row) => ({
+    ...serializeReplay(row),
+    eventTitle: row.event_title,
+  }));
+}

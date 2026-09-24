@@ -248,7 +248,10 @@ export default async function ExecutionPage({
 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-ink">
-                      {experiment.label ?? "Plain replay"}
+                      {experiment.label ??
+                        (experiment.mutations.length === 0
+                          ? "Plain replay"
+                          : "Unlabelled experiment")}
                     </div>
 
                     <div className="mt-0.5 truncate font-mono text-xs text-muted">

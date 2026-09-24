@@ -11,6 +11,7 @@ import {
   MAX_DEPENDENCY_DELAY_MS,
   type DependencyMutation,
 } from "./dependency-replay";
+import { isRecord, parsePath, removePath, setPath } from "./payload-path";
 
 export type Mutation =
   | {
@@ -45,8 +46,6 @@ export type ReplayRequest = {
 
 export const MAX_MUTATIONS = 50;
 
-const FORBIDDEN_PATH_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-
 /**
  * Headers an experiment may not set: credentials (so secrets are never
  * stored in experiment records), transport headers, and Rewind's own replay
@@ -67,29 +66,6 @@ const PROTECTED_HEADERS = new Set([
 ]);
 
 const HEADER_NAME = /^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,128}$/;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parsePath(path: unknown) {
-  if (typeof path !== "string" || path.trim() === "") {
-    return null;
-  }
-
-  const segments = path.split(".");
-
-  if (
-    segments.length > 32 ||
-    segments.some(
-      (segment) => segment === "" || FORBIDDEN_PATH_KEYS.has(segment),
-    )
-  ) {
-    return null;
-  }
-
-  return segments;
-}
 
 function isProtectedHeader(name: string) {
   const lower = name.toLowerCase();
@@ -305,63 +281,6 @@ export function parseMutations(
   return {
     mutations,
   };
-}
-
-function setPath(root: unknown, segments: string[], value: unknown) {
-  const base: Record<string, unknown> | unknown[] =
-    isRecord(root) || Array.isArray(root) ? root : {};
-
-  let current: Record<string, unknown> | unknown[] = base;
-
-  for (const [index, segment] of segments.entries()) {
-    const isLast = index === segments.length - 1;
-
-    const container = current as Record<string, unknown>;
-
-    if (isLast) {
-      container[segment] = value;
-      break;
-    }
-
-    const next = container[segment];
-
-    if (isRecord(next) || Array.isArray(next)) {
-      current = next;
-    } else {
-      const created: Record<string, unknown> | unknown[] = /^\d+$/.test(
-        segments[index + 1],
-      )
-        ? []
-        : {};
-
-      container[segment] = created;
-      current = created;
-    }
-  }
-
-  return base;
-}
-
-function removePath(root: unknown, segments: string[]) {
-  let current: unknown = root;
-
-  for (const segment of segments.slice(0, -1)) {
-    if (!isRecord(current) && !Array.isArray(current)) {
-      return root;
-    }
-
-    current = (current as Record<string, unknown>)[segment];
-  }
-
-  const last = segments[segments.length - 1];
-
-  if (Array.isArray(current) && /^\d+$/.test(last)) {
-    current.splice(Number(last), 1);
-  } else if (isRecord(current)) {
-    delete current[last];
-  }
-
-  return root;
 }
 
 /**
