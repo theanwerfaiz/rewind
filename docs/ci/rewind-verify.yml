@@ -1,0 +1,46 @@
+# Example GitHub Actions workflow: replay the failures stored as capsules in
+# capsules/ against the pull request's build, and fail the check if any of
+# them reproduces. Copy it to .github/workflows/ and adjust the start
+# commands for your application.
+#
+# The job summary shows a table of results with links to each diff, and
+# every failure is annotated on the run.
+
+name: Rewind verify
+
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Rewind itself, with its own empty database for this run.
+      - name: Start Rewind
+        run: |
+          npm run build
+          REWIND_DB_PATH="$RUNNER_TEMP/rewind.db" \
+          REWIND_REPLAY_BASE_URL=http://localhost:4000 \
+            npx next start --port 3000 &
+          npx wait-on http://localhost:3000/api/events
+
+      # Your application, built from this pull request and capturing to Rewind.
+      - name: Start the application under test
+        run: |
+          REWIND_URL=http://localhost:3000 npm run start:app -- --port 4000 &
+          npx wait-on http://localhost:4000
+
+      - name: Verify recorded failures stay fixed
+        run: npm run verify -- capsules/*.rewind.json --target http://localhost:4000
+        env:
+          REWIND_URL: http://localhost:3000

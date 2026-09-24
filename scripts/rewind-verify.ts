@@ -12,11 +12,20 @@
  *                         default: the Rewind server's REWIND_REPLAY_BASE_URL)
  *   --code-version <v>    Label for the run, e.g. a commit SHA ($GITHUB_SHA)
  *   --json                Print the run as JSON
+ *   --summary <file>      Also write a Markdown report to <file>. On GitHub
+ *                         Actions it is appended to $GITHUB_STEP_SUMMARY and
+ *                         failures are reported as annotations.
  *
  * Exit codes: 0 all passed, 1 at least one failed, 2 could not run.
  */
 
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
+
+import {
+  formatAnnotations,
+  formatMarkdownReport,
+  OUTCOME_LABELS,
+} from "../src/lib/verification-report";
 
 type Result = {
   title: string;
@@ -25,6 +34,7 @@ type Result = {
   outcome: string | null;
   verdict: "pass" | "fail";
   reason: string;
+  resultExecutionId: string | null;
 };
 
 type Run = {
@@ -43,6 +53,7 @@ function parseArgs(argv: string[]) {
     target: undefined as string | undefined,
     codeVersion: process.env.GITHUB_SHA?.slice(0, 12) as string | undefined,
     json: false,
+    summary: undefined as string | undefined,
     files: [] as string[],
   };
 
@@ -69,9 +80,11 @@ function parseArgs(argv: string[]) {
       options.codeVersion = value();
     } else if (arg === "--json") {
       options.json = true;
+    } else if (arg === "--summary") {
+      options.summary = value();
     } else if (arg === "--help" || arg === "-h") {
       console.log(
-        "Usage: npm run verify -- [capsule.rewind.json ...] [--rewind url] [--target url] [--code-version v] [--json]",
+        "Usage: npm run verify -- [capsule.rewind.json ...] [--rewind url] [--target url] [--code-version v] [--json] [--summary file]",
       );
       process.exit(0);
     } else if (arg.startsWith("--")) {
@@ -83,15 +96,6 @@ function parseArgs(argv: string[]) {
 
   return options;
 }
-
-const LABELS: Record<string, string> = {
-  fixed: "fixed",
-  still_failing: "still failing",
-  different_failure: "fails differently",
-  regressed: "regressed",
-  behavior_changed: "behaviour changed",
-  unchanged: "unchanged",
-};
 
 function printReport(run: Run) {
   console.log("");
@@ -107,7 +111,7 @@ function printReport(run: Run) {
     const verdict = result.verdict === "pass" ? "PASS" : "FAIL";
 
     const outcome = result.outcome
-      ? (LABELS[result.outcome] ?? result.outcome)
+      ? (OUTCOME_LABELS[result.outcome] ?? result.outcome)
       : "not run";
 
     console.log(`  ${verdict}  ${outcome.padEnd(18)} ${result.title}`);
@@ -184,6 +188,22 @@ async function main() {
     console.log(JSON.stringify(data.run, null, 2));
   } else {
     printReport(data.run);
+  }
+
+  const markdown = formatMarkdownReport(data.run, options.rewind);
+
+  if (options.summary) {
+    await writeFile(options.summary, markdown);
+  }
+
+  if (process.env.GITHUB_ACTIONS === "true") {
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown);
+    }
+
+    for (const annotation of formatAnnotations(data.run)) {
+      console.log(annotation);
+    }
   }
 
   process.exit(data.run.failed === 0 ? 0 : 1);

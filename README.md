@@ -1141,7 +1141,9 @@ New failures:     0
 PASS — 1/1 verified
 ```
 
-Exit codes: `0` all verified, `1` something did not verify, `2` verification could not run. Options: `--rewind <url>` (default `$REWIND_URL` or `http://localhost:3000`), `--target <url>` (localhost only), `--code-version <v>`, `--json`.
+Exit codes: `0` all verified, `1` something did not verify, `2` verification could not run. Options: `--rewind <url>` (default `$REWIND_URL` or `http://localhost:3000`), `--target <url>` (localhost only), `--code-version <v>`, `--json`, `--summary <file>` (also write a Markdown report).
+
+On GitHub Actions the Markdown report is appended to the job summary (a table of results, failures first, each linking to its diff) and every failure becomes an `::error` annotation. A complete workflow is in [`docs/ci/rewind-verify.yml`](docs/ci/rewind-verify.yml).
 
 Example GitHub Actions step, with Rewind and the candidate app running in the job:
 
