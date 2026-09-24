@@ -32,12 +32,28 @@ export default async function ExecutionsPage() {
     <main className="min-h-screen bg-[#070b14] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-8">
-          <Link
-            href="/"
-            className="text-sm text-slate-500 transition hover:text-slate-200"
-          >
-            ← Back to events
-          </Link>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <Link
+              href="/"
+              className="text-slate-500 transition hover:text-slate-200"
+            >
+              ← Back to events
+            </Link>
+
+            <Link
+              href="/fingerprints"
+              className="text-slate-500 transition hover:text-slate-200"
+            >
+              Failures
+            </Link>
+
+            <Link
+              href="/capsules"
+              className="text-slate-500 transition hover:text-slate-200"
+            >
+              Capsules
+            </Link>
+          </div>
 
           <div className="mt-5">
             <div className="flex items-center gap-3">

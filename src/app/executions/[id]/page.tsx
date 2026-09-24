@@ -149,6 +149,13 @@ export default async function ExecutionPage({
             Failures
           </Link>
 
+          <Link
+            href={`/executions/${execution.id}/capsule`}
+            className="text-violet-300 transition hover:text-violet-200"
+          >
+            Capsule
+          </Link>
+
           {execution.rootEventId && (
             <Link
               href={`/events/${execution.rootEventId}`}
@@ -192,6 +199,13 @@ export default async function ExecutionPage({
           <p className="mt-2 break-all font-mono text-xs text-slate-500">
             {execution.id}
           </p>
+
+          {execution.capsuleId && (
+            <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/[0.04] px-4 py-3 text-sm text-violet-200">
+              Imported from capsule{" "}
+              <span className="font-mono text-xs">{execution.capsuleId}</span>
+            </div>
+          )}
 
           {replay && (
             <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.04] px-4 py-3 text-sm">

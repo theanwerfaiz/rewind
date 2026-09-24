@@ -169,6 +169,21 @@ export function migrateDatabase(db: Database.Database) {
 
     // How dependency calls behave during a replay. Written before the
     // replayed request is sent and read by the target application.
+    // Reproduction Capsules imported into this Rewind.
+    if (!hasColumn(db, "executions", "capsule_id")) {
+      db.exec(`ALTER TABLE executions ADD COLUMN capsule_id TEXT`);
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS capsule_imports (
+        id TEXT PRIMARY KEY,
+        execution_id TEXT NOT NULL,
+        digest TEXT NOT NULL,
+        capsule_created_at TEXT NOT NULL,
+        imported_at TEXT NOT NULL
+      );
+    `);
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS replay_plans (
         replay_id TEXT PRIMARY KEY,

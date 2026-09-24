@@ -26,6 +26,8 @@ export type RewindExecution = {
   rootType: EventType | null;
 
   fingerprintId: string | null;
+  /** Set when the execution was imported from a Reproduction Capsule. */
+  capsuleId: string | null;
 };
 
 type ExecutionRow = {
@@ -42,6 +44,7 @@ type ExecutionRow = {
   root_title: string | null;
   root_type: EventType | null;
   fingerprint_id: string | null;
+  capsule_id: string | null;
 };
 
 const EXECUTION_COLUMNS = `
@@ -78,6 +81,7 @@ function mapExecution(row: ExecutionRow): RewindExecution {
     rootType: row.root_type,
 
     fingerprintId: row.fingerprint_id,
+    capsuleId: row.capsule_id,
   };
 }
 
