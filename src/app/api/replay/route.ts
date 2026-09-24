@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import db from "@/lib/db";
+import { createExecutionId } from "@/lib/execution-context";
+import { applyMutations, parseMutations, type Mutation } from "@/lib/mutations";
 
 export const runtime = "nodejs";
 
@@ -14,7 +16,10 @@ type EventRow = {
   source: string | null;
   metadata: string | null;
   payload: string | null;
+  execution_id: string | null;
 };
+
+const MAX_LABEL_LENGTH = 120;
 
 const ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"];
 
@@ -83,10 +88,9 @@ function getCapturedHeaders(metadata: unknown) {
       continue;
     }
 
-    if (
-      normalizedKey === "x-rewind-replay" ||
-      normalizedKey === "x-rewind-original-event"
-    ) {
+    // Rewind's own replay headers are regenerated for every replay; a
+    // captured copy (from replaying a replay) must not leak through.
+    if (normalizedKey.startsWith("x-rewind-")) {
       continue;
     }
 
@@ -109,6 +113,11 @@ function createReplayId() {
 }
 
 function persistReplay({
+  id,
+  label,
+  mutations,
+  sourceExecutionId,
+  resultExecutionId,
   eventId,
   method,
   url,
@@ -118,6 +127,11 @@ function persistReplay({
   responseBody,
   responseHeaders,
 }: {
+  id: string;
+  label: string | null;
+  mutations: Mutation[];
+  sourceExecutionId: string | null;
+  resultExecutionId: string | null;
   eventId: string;
   method: string;
   url: string;
@@ -142,7 +156,11 @@ function persistReplay({
         payload,
         response_body,
         response_headers,
-        created_at
+        created_at,
+        label,
+        mutations,
+        source_execution_id,
+        result_execution_id
       )
       VALUES (
         @id,
@@ -155,11 +173,19 @@ function persistReplay({
         @payload,
         @responseBody,
         @responseHeaders,
-        @createdAt
+        @createdAt,
+        @label,
+        @mutations,
+        @sourceExecutionId,
+        @resultExecutionId
       )
     `,
   ).run({
-    id: createReplayId(),
+    id,
+    label,
+    mutations: JSON.stringify(mutations),
+    sourceExecutionId,
+    resultExecutionId,
     eventId,
     timestamp: now,
     method,
@@ -215,6 +241,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parsedMutations = parseMutations(body.mutations);
+
+    if ("error" in parsedMutations) {
+      return NextResponse.json(
+        {
+          error: parsedMutations.error,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const { mutations } = parsedMutations;
+
+    if (
+      body.label !== undefined &&
+      body.label !== null &&
+      (typeof body.label !== "string" || body.label.length > MAX_LABEL_LENGTH)
+    ) {
+      return NextResponse.json(
+        {
+          error: `label must be a string of at most ${MAX_LABEL_LENGTH} characters.`,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const label =
+      typeof body.label === "string" && body.label.trim()
+        ? body.label.trim()
+        : null;
+
     const event = db
       .prepare(
         `
@@ -227,7 +288,8 @@ export async function POST(request: NextRequest) {
           duration,
           source,
           metadata,
-          payload
+          payload,
+          execution_id
         FROM events
         WHERE id = ?
         `,
@@ -328,16 +390,49 @@ export async function POST(request: NextRequest) {
       "payload",
     );
 
-    const replayPayload = hasPayloadOverride ? body.payload : originalPayload;
+    const basePayload = hasPayloadOverride ? body.payload : originalPayload;
 
-    const capturedHeaders = getCapturedHeaders(metadata);
+    // Mutations apply to a copy; the captured event is never modified.
+    const mutated = applyMutations(
+      {
+        url: replayUrl,
+        headers: getCapturedHeaders(metadata),
+        payload: basePayload,
+      },
+      mutations,
+    );
+
+    replayUrl = mutated.url;
+
+    if (!isAllowedReplayUrl(replayUrl)) {
+      return NextResponse.json(
+        {
+          error: "Replay is restricted to localhost.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const replayPayload = mutated.payload;
+
+    const replayId = createReplayId();
+
+    // Pre-assign the execution the replayed request will be captured as, so
+    // the experiment can be compared with the original execution.
+    const resultExecutionId = createExecutionId();
 
     const replayHeaders: Record<string, string> = {
-      ...capturedHeaders,
+      ...mutated.headers,
 
       "X-Rewind-Replay": "true",
 
       "X-Rewind-Original-Event": event.id,
+
+      "X-Rewind-Replay-Id": replayId,
+
+      "X-Rewind-Execution-Id": resultExecutionId,
     };
 
     const hasRequestBody =
@@ -407,7 +502,16 @@ export async function POST(request: NextRequest) {
       responseHeaders[key] = value;
     });
 
+    const capturedExecution = db
+      .prepare(`SELECT 1 FROM executions WHERE id = ?`)
+      .get(resultExecutionId);
+
     persistReplay({
+      id: replayId,
+      label,
+      mutations,
+      sourceExecutionId: event.execution_id,
+      resultExecutionId: capturedExecution ? resultExecutionId : null,
       eventId: event.id,
       method,
       url: replayUrl.toString(),
@@ -422,6 +526,16 @@ export async function POST(request: NextRequest) {
       success: replayResponse.ok,
 
       replay: {
+        id: replayId,
+
+        label,
+
+        mutations,
+
+        sourceExecutionId: event.execution_id,
+
+        resultExecutionId: capturedExecution ? resultExecutionId : null,
+
         eventId: event.id,
 
         eventType: event.type,

@@ -135,5 +135,35 @@ export function migrateDatabase(db: Database.Database) {
       CREATE INDEX IF NOT EXISTS idx_executions_fingerprint_id
         ON executions(fingerprint_id);
     `);
+
+    // Replay Lab: experiments are replays with a label, explicit mutations,
+    // and links to the source execution and the execution they produced.
+    // The replays table is created in db.ts, so guard on its existence.
+    const hasReplays = db
+      .prepare(
+        `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'replays'`,
+      )
+      .get();
+
+    if (hasReplays) {
+      for (const column of [
+        "label",
+        "mutations",
+        "source_execution_id",
+        "result_execution_id",
+      ]) {
+        if (!hasColumn(db, "replays", column)) {
+          db.exec(`ALTER TABLE replays ADD COLUMN ${column} TEXT`);
+        }
+      }
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_replays_source_execution_id
+          ON replays(source_execution_id);
+
+        CREATE INDEX IF NOT EXISTS idx_replays_result_execution_id
+          ON replays(result_execution_id);
+      `);
+    }
   }).immediate();
 }

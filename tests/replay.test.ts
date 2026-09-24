@@ -6,6 +6,8 @@ import db from "@/lib/db";
 
 import { POST } from "@/app/api/replay/route";
 
+import { getReplayById } from "@/lib/replays";
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -528,5 +530,231 @@ describe("POST /api/replay", () => {
     expect(data.error).toContain("Could not reach the local replay target.");
 
     expect(data.eventId).toBe(eventId);
+  });
+});
+
+describe("POST /api/replay experiments", () => {
+  function mockTarget(onRequest?: (headers: Headers) => void) {
+    return vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (_url, init) => {
+        onRequest?.(new Headers(init?.headers));
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      });
+  }
+
+  function sentRequest(fetchMock: ReturnType<typeof mockTarget>) {
+    const [url, init] = fetchMock.mock.calls[0];
+
+    return {
+      url: String(url),
+      headers: new Headers(init?.headers),
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    };
+  }
+
+  it("applies payload, header and query mutations to the replayed request", async () => {
+    const eventId = createHttpEvent({
+      headers: {
+        "x-feature": "on",
+        "content-type": "application/json",
+      },
+    });
+
+    const fetchMock = mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId,
+        label: "zero amount, feature off",
+        mutations: [
+          { target: "payload", op: "set", path: "amount", value: 0 },
+          { target: "payload", op: "remove", path: "captured" },
+          { target: "header", op: "set", name: "x-feature", value: "off" },
+          { target: "query", op: "set", name: "retry", value: "1" },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+
+    const sent = sentRequest(fetchMock);
+
+    expect(sent.url).toBe("http://localhost:3000/api/test-capture?retry=1");
+
+    expect(sent.body).toEqual({
+      message: "Original payload",
+      amount: 0,
+    });
+
+    expect(sent.headers.get("x-feature")).toBe("off");
+  });
+
+  it("never modifies the original event", async () => {
+    const eventId = createHttpEvent();
+
+    const before = db.prepare(`SELECT * FROM events WHERE id = ?`).get(eventId);
+
+    mockTarget();
+
+    await POST(
+      createRequest({
+        eventId,
+        mutations: [
+          { target: "payload", op: "set", path: "message", value: "changed" },
+        ],
+      }),
+    );
+
+    expect(db.prepare(`SELECT * FROM events WHERE id = ?`).get(eventId)).toEqual(
+      before,
+    );
+  });
+
+  it("stores the experiment with its label, mutations and source execution", async () => {
+    const eventId = createHttpEvent();
+
+    db.prepare(`UPDATE events SET execution_id = ? WHERE id = ?`).run(
+      "exe_source_experiment",
+      eventId,
+    );
+
+    mockTarget();
+
+    const mutations = [
+      { target: "payload", op: "set", path: "message", value: "changed" },
+    ];
+
+    const response = await POST(
+      createRequest({
+        eventId,
+        label: "  changed message  ",
+        mutations,
+      }),
+    );
+
+    const data = await response.json();
+
+    expect(data.replay.id).toMatch(/^replay_/);
+
+    expect(getReplayById(data.replay.id)).toMatchObject({
+      eventId,
+      label: "changed message",
+      mutations,
+      sourceExecutionId: "exe_source_experiment",
+      resultExecutionId: null,
+      payload: {
+        message: "changed",
+        captured: true,
+      },
+    });
+  });
+
+  it("links the experiment to the execution its replay produced", async () => {
+    const eventId = createHttpEvent();
+
+    let assignedExecutionId: string | null = null;
+
+    // Simulate the target application capturing the replayed request.
+    mockTarget((headers) => {
+      assignedExecutionId = headers.get("x-rewind-execution-id");
+
+      const now = new Date().toISOString();
+
+      db.prepare(
+        `
+        INSERT INTO executions (
+          id, started_at, ended_at, status, event_count, created_at, updated_at
+        )
+        VALUES (?, ?, ?, 'success', 1, ?, ?)
+        `,
+      ).run(assignedExecutionId, now, now, now, now);
+    });
+
+    const response = await POST(
+      createRequest({
+        eventId,
+      }),
+    );
+
+    const data = await response.json();
+
+    expect(assignedExecutionId).toMatch(/^exe_/);
+    expect(data.replay.resultExecutionId).toBe(assignedExecutionId);
+
+    expect(getReplayById(data.replay.id)?.resultExecutionId).toBe(
+      assignedExecutionId,
+    );
+
+    db.prepare(`DELETE FROM executions WHERE id = ?`).run(assignedExecutionId);
+  });
+
+  it("sends fresh replay identity headers and drops captured Rewind headers", async () => {
+    const eventId = createHttpEvent({
+      headers: {
+        "x-rewind-replay-id": "replay_stale",
+        "x-rewind-execution-id": "exe_stale",
+        "x-rewind-anything": "stale",
+      },
+    });
+
+    const fetchMock = mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId,
+      }),
+    );
+
+    const data = await response.json();
+
+    const { headers } = sentRequest(fetchMock);
+
+    expect(headers.get("x-rewind-replay-id")).toBe(data.replay.id);
+    expect(headers.get("x-rewind-execution-id")).toMatch(/^exe_[0-9a-f-]{36}$/);
+    expect(headers.get("x-rewind-anything")).toBeNull();
+    expect(headers.get("x-rewind-original-event")).toBe(eventId);
+  });
+
+  it.each([
+    [
+      "an invalid mutation",
+      [{ target: "payload", op: "set", path: "__proto__.x", value: 1 }],
+    ],
+    [
+      "a credential header mutation",
+      [{ target: "header", op: "set", name: "authorization", value: "Bearer x" }],
+    ],
+  ])("rejects %s without replaying", async (_label, mutations) => {
+    const eventId = createHttpEvent();
+
+    const fetchMock = mockTarget();
+
+    const response = await POST(
+      createRequest({
+        eventId,
+        mutations,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an overly long label", async () => {
+    const response = await POST(
+      createRequest({
+        eventId: createHttpEvent(),
+        label: "x".repeat(121),
+      }),
+    );
+
+    expect(response.status).toBe(400);
   });
 });

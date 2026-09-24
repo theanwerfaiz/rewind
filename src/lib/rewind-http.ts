@@ -12,6 +12,34 @@ import { rewind } from "@/lib/rewind";
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
 
+const UUID_SUFFIX = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+const REPLAY_ID_PATTERN = new RegExp(`^replay_${UUID_SUFFIX}$`);
+
+const EXECUTION_ID_PATTERN = new RegExp(`^exe_${UUID_SUFFIX}$`);
+
+/**
+ * A Rewind replay pre-assigns the execution its request will be captured
+ * as, so the experiment can be compared with the original. Honoured only
+ * for well-formed replay requests.
+ */
+function getReplayExecutionId(headers: Headers) {
+  const replayId = headers.get("x-rewind-replay-id");
+
+  const executionId = headers.get("x-rewind-execution-id");
+
+  if (
+    replayId &&
+    executionId &&
+    REPLAY_ID_PATTERN.test(replayId) &&
+    EXECUTION_ID_PATTERN.test(executionId)
+  ) {
+    return executionId;
+  }
+
+  return undefined;
+}
+
 type HttpEventIdentity = {
   eventId: string;
   executionId: string;
@@ -259,7 +287,10 @@ export function withRewindCapture(handler: RouteHandler): RouteHandler {
 
     const identity: HttpEventIdentity = {
       eventId: createEventId(),
-      executionId: parent?.executionId ?? createExecutionId(),
+      executionId:
+        parent?.executionId ??
+        getReplayExecutionId(request.headers) ??
+        createExecutionId(),
       parentEventId: parent?.eventId ?? null,
       startedAt: new Date().toISOString(),
     };

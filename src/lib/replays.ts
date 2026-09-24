@@ -1,4 +1,5 @@
 import db from "@/lib/db";
+import type { Mutation } from "@/lib/mutations";
 
 export type Replay = {
   id: string;
@@ -12,6 +13,11 @@ export type Replay = {
   responseBody: unknown;
   responseHeaders: unknown;
   createdAt: string;
+
+  label: string | null;
+  mutations: Mutation[];
+  sourceExecutionId: string | null;
+  resultExecutionId: string | null;
 };
 
 type ReplayRow = {
@@ -26,6 +32,10 @@ type ReplayRow = {
   response_body: string | null;
   response_headers: string | null;
   created_at: string;
+  label: string | null;
+  mutations: string | null;
+  source_execution_id: string | null;
+  result_execution_id: string | null;
 };
 
 function parseJson(value: string | null) {
@@ -53,6 +63,11 @@ function serializeReplay(row: ReplayRow): Replay {
     responseBody: parseJson(row.response_body),
     responseHeaders: parseJson(row.response_headers),
     createdAt: row.created_at,
+
+    label: row.label,
+    mutations: (parseJson(row.mutations) as Mutation[] | null) ?? [],
+    sourceExecutionId: row.source_execution_id,
+    resultExecutionId: row.result_execution_id,
   };
 }
 
@@ -71,7 +86,11 @@ export function getReplaysForEvent(eventId: string): Replay[] {
         payload,
         response_body,
         response_headers,
-        created_at
+        created_at,
+        label,
+        mutations,
+        source_execution_id,
+        result_execution_id
       FROM replays
       WHERE event_id = ?
       ORDER BY created_at DESC
@@ -97,7 +116,11 @@ export function getReplayById(replayId: string): Replay | null {
         payload,
         response_body,
         response_headers,
-        created_at
+        created_at,
+        label,
+        mutations,
+        source_execution_id,
+        result_execution_id
       FROM replays
       WHERE id = ?
       `,

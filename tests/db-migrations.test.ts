@@ -205,6 +205,50 @@ describe("migrateDatabase", () => {
     );
   });
 
+  it("adds experiment columns to an existing replays table", () => {
+    database = createLegacyDatabase();
+
+    database.exec(`
+      CREATE TABLE replays (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        method TEXT NOT NULL,
+        url TEXT NOT NULL,
+        status INTEGER NOT NULL,
+        duration TEXT NOT NULL,
+        payload TEXT,
+        response_body TEXT,
+        response_headers TEXT,
+        created_at TEXT NOT NULL
+      );
+
+      INSERT INTO replays (
+        id, event_id, timestamp, method, url, status, duration, created_at
+      )
+      VALUES (
+        'replay_legacy', 'evt_legacy', '2026-09-01T00:00:00.000Z', 'GET',
+        'http://localhost:3000/legacy', 200, '5ms', '2026-09-01T00:00:00.000Z'
+      );
+    `);
+
+    migrateDatabase(database);
+    migrateDatabase(database);
+
+    const replay = database
+      .prepare(`SELECT * FROM replays WHERE id = 'replay_legacy'`)
+      .get();
+
+    expect(replay).toMatchObject({
+      id: "replay_legacy",
+      status: 200,
+      label: null,
+      mutations: null,
+      source_execution_id: null,
+      result_execution_id: null,
+    });
+  });
+
   it("creates correlation indexes", () => {
     database = createLegacyDatabase();
 

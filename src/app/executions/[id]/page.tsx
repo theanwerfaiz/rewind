@@ -151,6 +151,17 @@ export default async function ExecutionPage({
               Root event →
             </Link>
           )}
+
+          {execution.rootEventId &&
+            (execution.rootType === "http.request" ||
+              execution.rootType === "webhook.received") && (
+              <Link
+                href={`/lab/${execution.rootEventId}`}
+                className="text-blue-300 transition hover:text-blue-200"
+              >
+                Replay Lab →
+              </Link>
+            )}
         </div>
 
         <div className="mb-8">

@@ -64,13 +64,22 @@ export default async function EventDetailsPage({
   return (
     <main className="min-h-screen bg-[#08090b] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
+        <div className="mb-8 flex flex-wrap items-center gap-4">
           <Link
             href="/"
             className="text-sm text-slate-400 transition hover:text-white"
           >
             ← Back to events
           </Link>
+
+          {(isHttpEvent || event.type === "webhook.received") && (
+            <Link
+              href={`/lab/${event.id}`}
+              className="text-sm text-blue-300 transition hover:text-blue-200"
+            >
+              Open in Replay Lab →
+            </Link>
+          )}
         </div>
 
         {/* Event Header */}
