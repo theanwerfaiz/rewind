@@ -20,6 +20,9 @@ function hasColumn(db: Database.Database, table: string, column: string) {
  * and those events do not belong to an execution.
  */
 export function migrateDatabase(db: Database.Database) {
+  // IMMEDIATE takes the write lock up front. Several processes (e.g. parallel
+  // `next build` workers) run this at startup; a deferred transaction that
+  // upgrades from read to write fails with SQLITE_BUSY instead of waiting.
   db.transaction(() => {
     for (const column of ["span_id", "execution_id", "parent_event_id"]) {
       if (!hasColumn(db, "events", column)) {
@@ -108,5 +111,5 @@ export function migrateDatabase(db: Database.Database) {
       FROM events
       WHERE parent_event_id IS NOT NULL;
     `);
-  })();
+  }).immediate();
 }
