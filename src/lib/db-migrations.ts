@@ -184,6 +184,23 @@ export function migrateDatabase(db: Database.Database) {
       );
     `);
 
+    // An execution's status is its root event's outcome. Executions stored
+    // before this rule, whose root succeeded after handling a child
+    // failure, are corrected and lose the fingerprint they no longer have.
+    db.exec(`
+      UPDATE executions
+      SET
+        status = 'success',
+        fingerprint_id = NULL,
+        fingerprint_version = NULL
+      WHERE status = 'error'
+        AND EXISTS (
+          SELECT 1 FROM events AS root
+          WHERE root.id = executions.root_event_id
+            AND root.status != 'error'
+        );
+    `);
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS replay_plans (
         replay_id TEXT PRIMARY KEY,

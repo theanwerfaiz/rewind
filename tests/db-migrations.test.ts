@@ -264,6 +264,59 @@ describe("migrateDatabase", () => {
     ]);
   });
 
+  it("corrects executions whose root succeeded after a handled failure", () => {
+    database = createLegacyDatabase();
+
+    migrateDatabase(database);
+
+    const now = "2026-09-01T00:00:00.000Z";
+
+    database
+      .prepare(
+        `
+        INSERT INTO executions (
+          id, started_at, ended_at, status, root_event_id, event_count,
+          created_at, updated_at, fingerprint_id, fingerprint_version
+        )
+        VALUES (?, ?, ?, 'error', ?, 1, ?, ?, 'fp_stale', 1)
+        `,
+      )
+      .run("exe_handled", now, now, "evt_legacy", now, now);
+
+    database
+      .prepare(
+        `
+        INSERT INTO executions (
+          id, started_at, ended_at, status, root_event_id, event_count,
+          created_at, updated_at
+        )
+        VALUES (?, ?, ?, 'error', NULL, 1, ?, ?)
+        `,
+      )
+      .run("exe_no_root", now, now, now, now);
+
+    migrateDatabase(database);
+
+    expect(
+      database
+        .prepare(
+          `SELECT id, status, fingerprint_id FROM executions ORDER BY id`,
+        )
+        .all(),
+    ).toEqual([
+      {
+        id: "exe_handled",
+        status: "success",
+        fingerprint_id: null,
+      },
+      {
+        id: "exe_no_root",
+        status: "error",
+        fingerprint_id: null,
+      },
+    ]);
+  });
+
   it("creates correlation indexes", () => {
     database = createLegacyDatabase();
 

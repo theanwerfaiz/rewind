@@ -323,6 +323,61 @@ describe("events API execution identity", () => {
     ).toContain(executionId);
   });
 
+  it("takes the execution status from the root once it is recorded", async () => {
+    const suffix = uniqueSuffix();
+
+    const executionId = `exe_handled_${suffix}`;
+
+    const rootId = `evt_handled_root_${suffix}`;
+
+    createdExecutionIds.push(executionId);
+
+    // A dependency call fails; the application handles it.
+    await createEvent({
+      type: "http.dependency",
+      title: "POST https://api.stripe.test/v1/charges",
+      status: "error",
+      executionId,
+      parentEventId: rootId,
+    });
+
+    const status = () =>
+      db
+        .prepare(`SELECT status, fingerprint_id FROM executions WHERE id = ?`)
+        .get(executionId) as {
+        status: string;
+        fingerprint_id: string | null;
+      };
+
+    // Until the root arrives, the failure counts.
+    expect(status().status).toBe("error");
+
+    await createEvent({
+      id: rootId,
+      type: "http.request",
+      title: "POST /api/handled/checkout",
+      status: "success",
+      executionId,
+      parentEventId: null,
+    });
+
+    expect(status()).toEqual({
+      status: "success",
+      fingerprint_id: null,
+    });
+
+    // Later child events do not overturn the recorded outcome.
+    await createEvent({
+      type: "error",
+      title: "Late background error",
+      status: "error",
+      executionId,
+      parentEventId: rootId,
+    });
+
+    expect(status().status).toBe("success");
+  });
+
   it("keeps a successful execution successful", async () => {
     const executionId = `exe_ok_${uniqueSuffix()}`;
 

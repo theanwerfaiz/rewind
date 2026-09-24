@@ -100,7 +100,10 @@ function getEventEnd(timestamp: string, duration: string | null) {
  * it. Call inside the same transaction that inserts the event.
  *
  * - startedAt / endedAt span the earliest start and latest end of its events
- * - status becomes "error" as soon as any event errors
+ * - status is the root event's outcome once the root is recorded: a child
+ *   failure the application handled (a timed-out call it recovered from)
+ *   stays visible in the graph but does not fail the execution. Before the
+ *   root arrives (children are stored first), any error marks it failed
  * - the first event without a parent becomes the root event
  */
 export function recordExecutionEvent(event: ExecutionEventInput) {
@@ -136,6 +139,11 @@ export function recordExecutionEvent(event: ExecutionEventInput) {
       started_at = MIN(executions.started_at, excluded.started_at),
       ended_at = MAX(executions.ended_at, excluded.ended_at),
       status = CASE
+        WHEN executions.root_event_id IS NULL
+          AND excluded.root_event_id IS NOT NULL
+          THEN excluded.status
+        WHEN executions.root_event_id IS NOT NULL
+          THEN executions.status
         WHEN executions.status = 'error' OR excluded.status = 'error'
           THEN 'error'
         ELSE executions.status

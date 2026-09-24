@@ -59,9 +59,18 @@ export function assignExecutionFingerprint(executionId: string) {
     .prepare(`SELECT status FROM executions WHERE id = ?`)
     .get(executionId) as { status: string } | undefined;
 
-  // Only failed executions have fingerprints, and an execution never goes
-  // from error back to success, so successful ones need no work here.
+  // Only failed executions have fingerprints. An execution can turn from a
+  // provisional error to success when its root arrives, so clear any
+  // fingerprint it was given in the meantime.
   if (execution?.status !== "error") {
+    db.prepare(
+      `
+      UPDATE executions
+      SET fingerprint_id = NULL, fingerprint_version = NULL
+      WHERE id = ? AND fingerprint_id IS NOT NULL
+      `,
+    ).run(executionId);
+
     return null;
   }
 
