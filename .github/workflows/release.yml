@@ -1,10 +1,13 @@
 name: Release
 
-# Push a tag such as v0.2.0 to publish a GitHub release whose notes are
-# that version's section of CHANGELOG.md.
+# Publishes a GitHub release whose notes are the version's section of
+# CHANGELOG.md. Either push a tag such as v0.2.0, or run this workflow
+# from the Actions tab: it then tags the current commit with the version
+# in package.json.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,17 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the tag matches package.json
+      - name: Work out the tag
         run: |
           expected="v$(node -p "require('./package.json').version")"
-          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "$expected" ]; then
             echo "Tag $GITHUB_REF_NAME does not match package.json ($expected)." >&2
             exit 1
           fi
+          echo "TAG=$expected" >> "$GITHUB_ENV"
 
       - name: Extract the release notes
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           awk -v heading="## [$version]" '
             index($0, heading) == 1 { found = 1; next }
             found && /^## \[/ { exit }
@@ -40,4 +44,14 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "Rewind $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Release $TAG already exists." >&2
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            gh release create "$TAG" --title "Rewind $TAG" --notes-file notes.md --verify-tag
+          else
+            # Creates the tag on this commit as part of the release.
+            gh release create "$TAG" --title "Rewind $TAG" --notes-file notes.md --target "$GITHUB_SHA"
+          fi
