@@ -169,7 +169,7 @@ export default async function ExecutionCapsulePage({
         <section className="rounded-2xl border border-line bg-panel p-6">
           <h2 className="text-sm font-medium text-ink">Contents</h2>
 
-          <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+          <dl className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
             <div>
               <dt className="text-xs text-faint">Format</dt>
               <dd className="font-mono text-ink-2">
