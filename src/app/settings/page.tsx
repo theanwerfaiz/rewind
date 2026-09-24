@@ -10,6 +10,7 @@ import { getAccessToken } from "@/lib/access";
 import db from "@/lib/db";
 import { REDACTED_HEADERS } from "@/lib/redaction";
 import { getSettings } from "@/lib/settings";
+import { REWIND_VERSION } from "@/lib/version";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -124,7 +125,9 @@ export default async function SettingsPage() {
             ))}
           </dl>
 
-          <p className="mt-4 break-all font-mono text-xs text-faint">{storage.path}</p>
+          <p className="mt-4 break-all font-mono text-xs text-faint">
+            {storage.path} · Rewind v{REWIND_VERSION}
+          </p>
         </Panel>
       </div>
     </>
