@@ -78,7 +78,7 @@ export function Sidebar({ version }: { version: string }) {
         </div>
 
         <div className="mt-1 flex items-center justify-between text-xs text-faint">
-          <span>Data stays in your SQLite file</span>
+          <span>Data stays on this machine</span>
           <a
             href="https://github.com/theanwerfaiz/rewind/blob/main/CHANGELOG.md"
             target="_blank"
