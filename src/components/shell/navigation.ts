@@ -8,6 +8,7 @@ import {
   List,
   Package,
   Play,
+  Settings,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -54,6 +55,10 @@ export const NAVIGATION: NavGroup[] = [
       { label: "Timeline", href: "/timeline", icon: Activity },
       { label: "Replays", href: "/replays", icon: Play },
     ],
+  },
+  {
+    label: "Workspace",
+    items: [{ label: "Settings", href: "/settings", icon: Settings }],
   },
 ];
 

@@ -279,6 +279,14 @@ export function migrateDatabase(db: Database.Database) {
       );
     `);
 
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+
     // The live stream polls for executions changed since a timestamp.
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_executions_updated_at

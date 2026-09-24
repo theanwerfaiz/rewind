@@ -1,12 +1,12 @@
 import db from "@/lib/db";
 import {
   buildFixtures,
-  DEFAULT_DEPENDENCY_MODE,
   isDependencyMode,
   type DependencyMode,
   type ReplayPlan,
 } from "@/lib/dependency-replay";
 import { getEventsByExecutionId } from "@/lib/events";
+import { getSettings } from "@/lib/settings";
 import { createExecutionId } from "@/lib/execution-context";
 import {
   applyMutations,
@@ -340,11 +340,12 @@ export async function runReplay(
       );
     }
 
-    // Safe by default: dependencies answer from the recording unless the
-    // experiment explicitly opts into live calls.
+    // Safe by default: dependencies answer from the recording (or are
+    // blocked, per the workspace setting) unless the experiment explicitly
+    // opts into live calls.
     const dependencyMode: DependencyMode = isDependencyMode(body.dependencyMode)
       ? body.dependencyMode
-      : DEFAULT_DEPENDENCY_MODE;
+      : getSettings().defaultDependencyMode;
 
     const event = db
       .prepare(

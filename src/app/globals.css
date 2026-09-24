@@ -34,6 +34,75 @@
   --warning-soft: rgba(242, 193, 78, 0.12);
 }
 
+/*
+ * Light theme: chosen explicitly (data-theme="light"), or following the
+ * system when set to data-theme="system". Same roles, own values.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #f6f7f9;
+  --sidebar: #eef0f4;
+  --panel: #ffffff;
+  --raised: #f1f3f7;
+  --hover: #e9edf3;
+  --line: #e1e5ec;
+  --line-strong: #cbd2dd;
+
+  --ink: #0e1320;
+  --ink-2: #3b4456;
+  --muted: #5b6578;
+  --faint: #8a93a3;
+
+  --accent: #3d5cf5;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(61, 92, 245, 0.1);
+  --recorder: #e8640c;
+
+  --success: #0f8f5f;
+  --success-soft: rgba(15, 143, 95, 0.1);
+  --failure: #d33a2f;
+  --failure-soft: rgba(211, 58, 47, 0.09);
+  --warning: #9a6300;
+  --warning-soft: rgba(214, 150, 0, 0.13);
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+
+    --canvas: #f6f7f9;
+    --sidebar: #eef0f4;
+    --panel: #ffffff;
+    --raised: #f1f3f7;
+    --hover: #e9edf3;
+    --line: #e1e5ec;
+    --line-strong: #cbd2dd;
+
+    --ink: #0e1320;
+    --ink-2: #3b4456;
+    --muted: #5b6578;
+    --faint: #8a93a3;
+
+    --accent: #3d5cf5;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(61, 92, 245, 0.1);
+    --recorder: #e8640c;
+
+    --success: #0f8f5f;
+    --success-soft: rgba(15, 143, 95, 0.1);
+    --failure: #d33a2f;
+    --failure-soft: rgba(211, 58, 47, 0.09);
+    --warning: #9a6300;
+    --warning-soft: rgba(214, 150, 0, 0.13);
+  }
+}
+
+/* Compact density tightens every Tailwind spacing step at once. */
+:root[data-density="compact"] {
+  --spacing: 0.21rem;
+}
+
 @theme inline {
   --color-canvas: var(--canvas);
   --color-sidebar: var(--sidebar);

@@ -32,6 +32,7 @@ export const GO_SHORTCUTS: { key: string; href: string; label: string }[] = [
   { key: "v", href: "/verifications", label: "Verifications" },
   { key: "n", href: "/events", label: "Events" },
   { key: "r", href: "/replays", label: "Replays" },
+  { key: "s", href: "/settings", label: "Settings" },
 ];
 
 const ACTIONS: { label: string; href: string; icon: LucideIcon; keywords: string }[] = [

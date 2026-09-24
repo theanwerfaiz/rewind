@@ -3,6 +3,7 @@ import db from "@/lib/db";
 import { recordParentEdge } from "@/lib/event-edges";
 import { recordExecutionEvent } from "@/lib/executions";
 import { assignExecutionFingerprint } from "@/lib/fingerprints";
+import { applyIngestRedaction } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -299,6 +300,12 @@ export async function POST(request: NextRequest) {
         ? body.metadata.environment
         : null;
 
+    // Workspace redaction rules, on top of what the capture client did.
+    const redacted = applyIngestRedaction({
+      metadata: body.metadata,
+      payload: body.payload,
+    });
+
     const row = {
       id,
       timestamp,
@@ -314,8 +321,9 @@ export async function POST(request: NextRequest) {
       user_id: toOptionalId(body.userId),
       execution_id: executionId,
       parent_event_id: parentEventId,
-      metadata: body.metadata ? JSON.stringify(body.metadata) : null,
-      payload: body.payload !== undefined ? JSON.stringify(body.payload) : null,
+      metadata: redacted.metadata ? JSON.stringify(redacted.metadata) : null,
+      payload:
+        redacted.payload !== undefined ? JSON.stringify(redacted.payload) : null,
       created_at: createdAt,
     };
 

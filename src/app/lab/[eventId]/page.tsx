@@ -7,6 +7,7 @@ import type { RewindHttpMetadata } from "@/lib/event-metadata";
 import { getEventById, getEventsByExecutionId } from "@/lib/events";
 import { describeMutation } from "@/lib/mutations";
 import { getReplaysForEvent } from "@/lib/replays";
+import { getSettings } from "@/lib/settings";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/StatusBadge";
 import { ButtonLink } from "@/components/ui/primitives";
@@ -173,6 +174,7 @@ export default async function ReplayLabPage({
           <ExperimentBuilder
             eventId={event.id}
             dependencies={dependencyTitles}
+            defaultDependencyMode={getSettings().defaultDependencyMode}
             original={{
               method: metadata?.method ?? "POST",
               path: metadata?.path ?? "/",

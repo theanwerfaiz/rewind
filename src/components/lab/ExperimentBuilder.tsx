@@ -154,10 +154,13 @@ export function ExperimentBuilder({
   eventId,
   dependencies,
   original,
+  defaultDependencyMode = "recorded",
 }: {
   eventId: string;
   /** Dependency calls recorded in the original execution. */
   dependencies: string[];
+  /** The workspace default from Settings; never "live". */
+  defaultDependencyMode?: "recorded" | "blocked";
   /** The captured request, redacted, for the editor and the preview. */
   original: {
     method: string;
@@ -171,7 +174,7 @@ export function ExperimentBuilder({
   const [label, setLabel] = useState("");
 
   const [dependencyMode, setDependencyMode] =
-    useState<DependencyMode>("recorded");
+    useState<DependencyMode>(defaultDependencyMode);
 
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
 

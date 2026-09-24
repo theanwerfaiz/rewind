@@ -7,6 +7,8 @@ import { LiveTail } from "@/components/shell/LiveTail";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { TopBar } from "@/components/shell/TopBar";
 
+import { PREFERENCES_SCRIPT } from "@/lib/preferences";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +29,14 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable}`}
+      // The preferences script sets data-theme and data-density before
+      // React hydrates, so the attributes can differ from the server's.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PREFERENCES_SCRIPT }} />
+      </head>
+
       <body className="bg-canvas text-ink">
         <div className="flex min-h-screen">
           <Sidebar />
