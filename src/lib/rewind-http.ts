@@ -12,7 +12,7 @@ import {
   getExecutionContext,
   runInExecution,
 } from "@/lib/execution-context";
-import { getRewindOrigin, rewind } from "@/lib/rewind";
+import { getRewindOrigin, rewind, rewindAuthHeaders } from "@/lib/rewind";
 
 type RouteHandler = (request: NextRequest) => Promise<Response>;
 
@@ -56,6 +56,7 @@ async function loadReplayer(replayId: string) {
   try {
     const response = await fetch(
       `${getRewindOrigin()}/api/replays/${replayId}/plan`,
+      { headers: rewindAuthHeaders() },
     );
 
     if (response.ok) {

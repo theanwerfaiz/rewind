@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { RewindLogo } from "@/components/icons/RewindLogo";
@@ -15,6 +16,13 @@ import { SidebarNav } from "./Sidebar";
  */
 export function TopBar({ children }: { children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+
+  const pathname = usePathname();
+
+  // The sign-in page stands alone: no navigation, search or live stream.
+  if (pathname === "/login") {
+    return null;
+  }
 
   return (
     <div className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur md:px-6">

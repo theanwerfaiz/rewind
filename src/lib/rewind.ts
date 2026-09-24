@@ -39,6 +39,16 @@ export function getRewindOrigin() {
   return new URL(DEFAULT_ENDPOINT).origin;
 }
 
+/**
+ * Headers that authenticate calls to Rewind when the server requires an
+ * access token (REWIND_ACCESS_TOKEN, shared with the capturing app).
+ */
+export function rewindAuthHeaders(): Record<string, string> {
+  const token = process.env.REWIND_ACCESS_TOKEN?.trim();
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function capture(
   event: CaptureEventInput,
   options: CaptureOptions = {},
@@ -53,6 +63,7 @@ export async function capture(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...rewindAuthHeaders(),
     },
     body: JSON.stringify({
       ...event,

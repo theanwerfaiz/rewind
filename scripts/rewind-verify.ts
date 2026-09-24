@@ -157,10 +157,13 @@ async function main() {
     options.files.map(async (file) => JSON.parse(await readFile(file, "utf8"))),
   );
 
+  const token = process.env.REWIND_ACCESS_TOKEN?.trim();
+
   const response = await fetch(`${options.rewind}/api/verifications`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
       ...(capsules.length > 0 ? { capsules } : { select: "failures" }),
