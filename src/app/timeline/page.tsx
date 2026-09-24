@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import db from "@/lib/db";
 
 type TimelineEvent = {
@@ -87,6 +88,10 @@ function getStatusTextClass(status: string) {
 }
 
 async function getTimelineEvents(): Promise<TimelineEvent[]> {
+  // better-sqlite3 is synchronous, so without this the query runs once at
+  // build time and the page never shows newly captured events.
+  await connection();
+
   const rows = db
     .prepare(
       `
