@@ -2,13 +2,15 @@ import { getCapsuleImports } from "@/lib/capsule-store";
 import db from "@/lib/db";
 import { searchExecutions } from "@/lib/executions";
 import { getFingerprints } from "@/lib/fingerprints";
+import { getIncidents } from "@/lib/incidents";
 
 export type SearchResultKind =
   | "execution"
   | "failure"
   | "event"
   | "replay"
-  | "capsule";
+  | "capsule"
+  | "incident";
 
 export type SearchResult = {
   kind: SearchResultKind;
@@ -32,7 +34,7 @@ function toStatus(value: string | null | undefined) {
 
 /**
  * Finds executions, failures, events, replays and capsules for the command
- * palette. An ID or ID prefix (exe_, evt_, fp_, replay_, cap_) jumps to
+ * palette. An ID or ID prefix (exe_, evt_, fp_, replay_, cap_, inc_) jumps to
  * that record; other text matches titles, messages and labels.
  */
 export function search(rawQuery: string, limit = 6): SearchResult[] {
@@ -155,6 +157,25 @@ export function search(rawQuery: string, limit = 6): SearchResult[] {
       subtitle: `${capsule.id} · imported`,
       href: `/executions/${capsule.executionId}`,
       status: toStatus(capsule.status),
+    });
+  }
+
+  const incidents = getIncidents(200).filter(
+    (incident) =>
+      incident.id.toLowerCase().startsWith(lower) ||
+      incident.title.toLowerCase().includes(lower),
+  );
+
+  for (const incident of incidents.slice(0, limit)) {
+    results.push({
+      kind: "incident",
+      id: incident.id,
+      title: incident.title,
+      subtitle: `${incident.status} · ${incident.executionCount} ${
+        incident.executionCount === 1 ? "execution" : "executions"
+      }`,
+      href: `/incidents/${incident.id}`,
+      status: incident.status === "open" ? "error" : "success",
     });
   }
 

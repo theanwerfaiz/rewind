@@ -313,6 +313,28 @@ export function getExecutionsByFingerprint(
   return rows.map(mapExecution);
 }
 
+/** Executions with the given IDs, newest first; unknown IDs are skipped. */
+export function getExecutionsByIds(ids: string[]): RewindExecution[] {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const rows = db
+    .prepare(
+      `
+      SELECT ${EXECUTION_COLUMNS}
+      FROM executions
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.id IN (SELECT value FROM json_each(?))
+      ORDER BY executions.started_at DESC
+      `,
+    )
+    .all(JSON.stringify(ids)) as ExecutionRow[];
+
+  return rows.map(mapExecution);
+}
+
 export function getExecutionById(id: string): {
   execution: RewindExecution;
   events: RewindEvent[];

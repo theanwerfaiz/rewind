@@ -9,6 +9,7 @@ import {
   InvariantPanel,
   type InvariantSuggestion,
 } from "@/components/executions/InvariantPanel";
+import { AddToIncident } from "@/components/incidents/AddToIncident";
 import { IdChip } from "@/components/ui/IdChip";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ButtonLink, Panel } from "@/components/ui/primitives";
@@ -17,6 +18,7 @@ import { WorkspaceTabs, type WorkspaceTab } from "@/components/ui/WorkspaceTabs"
 import { parseDurationMs } from "@/lib/events";
 import { getExecutionGraphById } from "@/lib/executions";
 import { formatDateTime, formatMs, formatRelative, shortId } from "@/lib/format";
+import { getIncidents, getIncidentsForExecution } from "@/lib/incidents";
 import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { buildInvestigation } from "@/lib/investigation";
 import {
@@ -164,6 +166,17 @@ export default async function ExecutionPage({
   const failingInvariants = invariantResults.filter((item) => !item.passed).length;
 
   const { tab } = await searchParams;
+
+  const incidents = getIncidentsForExecution(execution.id);
+
+  const linkableIncidents = getIncidents(50)
+    .filter(
+      (incident) =>
+        incident.status === "open" &&
+        !incidents.some((linked) => linked.id === incident.id),
+    )
+    .slice(0, 8)
+    .map(({ id, title, executionCount }) => ({ id, title, executionCount }));
 
   const tabs: WorkspaceTab[] = [
     {
@@ -336,6 +349,16 @@ export default async function ExecutionPage({
         }
         actions={
           <>
+            <AddToIncident
+              executionId={execution.id}
+              suggestedTitle={
+                firstFailure
+                  ? `${execution.rootTitle ?? "Execution"}: ${firstFailure.event.title}`.slice(0, 200)
+                  : (execution.rootTitle ?? "Execution")
+              }
+              openIncidents={linkableIncidents}
+            />
+
             {execution.rootEventId && (
               <ButtonLink href={`/events/${execution.rootEventId}`} variant="ghost">
                 Root event
@@ -358,6 +381,26 @@ export default async function ExecutionPage({
           </>
         }
       />
+
+      {incidents.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Part of</span>
+          {incidents.map((incident) => (
+            <Link
+              key={incident.id}
+              href={`/incidents/${incident.id}`}
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1 text-ink-2 transition hover:border-line-strong hover:text-ink"
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  incident.status === "open" ? "bg-failure" : "bg-success"
+                }`}
+              />
+              {incident.title}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {execution.capsuleId && (
         <div className="mb-4 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent">

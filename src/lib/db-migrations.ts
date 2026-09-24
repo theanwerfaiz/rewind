@@ -287,6 +287,28 @@ export function migrateDatabase(db: Database.Database) {
       );
     `);
 
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS incidents (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS incident_executions (
+        incident_id TEXT NOT NULL,
+        execution_id TEXT NOT NULL,
+        added_at TEXT NOT NULL,
+
+        PRIMARY KEY (incident_id, execution_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_incident_executions_execution_id
+        ON incident_executions(execution_id);
+    `);
+
     // The live stream polls for executions changed since a timestamp.
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_executions_updated_at

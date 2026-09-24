@@ -26,6 +26,7 @@ export const GO_SHORTCUTS: { key: string; href: string; label: string }[] = [
   { key: "o", href: "/", label: "Overview" },
   { key: "e", href: "/executions", label: "Executions" },
   { key: "f", href: "/fingerprints", label: "Failures" },
+  { key: "i", href: "/incidents", label: "Incidents" },
   { key: "l", href: "/lab", label: "Replay Lab" },
   { key: "d", href: "/executions/compare", label: "Compare" },
   { key: "c", href: "/capsules", label: "Capsules" },
@@ -68,6 +69,7 @@ const KIND_LABELS: Record<SearchResultKind, string> = {
   event: "Event",
   replay: "Replay",
   capsule: "Capsule",
+  incident: "Incident",
 };
 
 function subscribeToNothing() {

@@ -9,6 +9,7 @@ import {
   Package,
   Play,
   Settings,
+  Siren,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export const NAVIGATION: NavGroup[] = [
       { label: "Overview", href: "/", icon: LayoutDashboard },
       { label: "Executions", href: "/executions", icon: GitBranch },
       { label: "Failures", href: "/fingerprints", icon: AlertTriangle },
+      { label: "Incidents", href: "/incidents", icon: Siren },
     ],
   },
   {
