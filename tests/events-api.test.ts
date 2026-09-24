@@ -20,6 +20,7 @@ const createdExecutionIds: string[] = [];
 
 afterEach(() => {
   for (const id of createdIds.splice(0)) {
+    db.prepare(`DELETE FROM event_edges WHERE to_event_id = ?`).run(id);
     db.prepare(`DELETE FROM events WHERE id = ?`).run(id);
   }
 
@@ -271,6 +272,39 @@ describe("events API execution identity", () => {
       executionId,
       parentEventId: rootId,
     });
+
+    expect(data.edges).toHaveLength(1);
+
+    expect(data.edges[0]).toMatchObject({
+      executionId,
+      fromEventId: rootId,
+      toEventId: childId,
+      type: "parent_of",
+      origin: "explicit",
+      confidence: 1,
+    });
+
+    expect(data.graph).toMatchObject({
+      rootIds: [rootId],
+      firstFailureId: childId,
+      failurePath: [rootId, childId],
+      nodes: [
+        {
+          eventId: rootId,
+          depth: 0,
+          childIds: [childId],
+          orphan: false,
+        },
+        {
+          eventId: childId,
+          depth: 1,
+          childIds: [],
+          orphan: false,
+        },
+      ],
+    });
+
+    expect(data.execution.rootTitle).toBe("POST /checkout");
 
     const listResponse = await listExecutions(
       new NextRequest("http://localhost:3000/api/executions?limit=500"),

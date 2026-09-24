@@ -129,6 +129,48 @@ describe("migrateDatabase", () => {
     );
   });
 
+  it("backfills parent edges idempotently", () => {
+    database = createLegacyDatabase();
+
+    migrateDatabase(database);
+
+    database
+      .prepare(
+        `
+        INSERT INTO events (
+          id, timestamp, type, title, status, execution_id,
+          parent_event_id, created_at
+        )
+        VALUES (
+          'evt_child', '2026-09-01T00:00:01.000Z', 'database.query',
+          'SELECT 1', 'success', 'exe_legacy', 'evt_legacy',
+          '2026-09-01T00:00:01.000Z'
+        )
+        `,
+      )
+      .run();
+
+    migrateDatabase(database);
+    migrateDatabase(database);
+
+    const edges = database
+      .prepare(
+        `SELECT execution_id, from_event_id, to_event_id, type, origin
+         FROM event_edges`,
+      )
+      .all();
+
+    expect(edges).toEqual([
+      {
+        execution_id: "exe_legacy",
+        from_event_id: "evt_legacy",
+        to_event_id: "evt_child",
+        type: "parent_of",
+        origin: "explicit",
+      },
+    ]);
+  });
+
   it("creates correlation indexes", () => {
     database = createLegacyDatabase();
 

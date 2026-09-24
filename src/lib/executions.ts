@@ -1,6 +1,12 @@
 import db from "@/lib/db";
+import { getEdgesForExecution } from "@/lib/event-edges";
+import {
+  buildExecutionGraph,
+  type EventEdge,
+  type ExecutionGraph,
+} from "@/lib/event-graph";
 import { getEventsByExecutionId, parseDurationMs } from "@/lib/events";
-import type { EventStatus, RewindEvent } from "./mock-events";
+import type { EventStatus, EventType, RewindEvent } from "./mock-events";
 
 export type ExecutionStatus = "success" | "error";
 
@@ -15,6 +21,9 @@ export type RewindExecution = {
   eventCount: number;
   createdAt: string;
   updatedAt: string;
+
+  rootTitle: string | null;
+  rootType: EventType | null;
 };
 
 type ExecutionRow = {
@@ -28,7 +37,15 @@ type ExecutionRow = {
   event_count: number;
   created_at: string;
   updated_at: string;
+  root_title: string | null;
+  root_type: EventType | null;
 };
+
+const EXECUTION_COLUMNS = `
+  executions.*,
+  root.title AS root_title,
+  root.type AS root_type
+`;
 
 export type ExecutionEventInput = {
   id: string;
@@ -53,6 +70,9 @@ function mapExecution(row: ExecutionRow): RewindExecution {
     eventCount: row.event_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+
+    rootTitle: row.root_title,
+    rootType: row.root_type,
   };
 }
 
@@ -136,9 +156,11 @@ export function getExecutions(limit = 100): RewindExecution[] {
   const rows = db
     .prepare(
       `
-      SELECT *
+      SELECT ${EXECUTION_COLUMNS}
       FROM executions
-      ORDER BY started_at DESC
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      ORDER BY executions.started_at DESC
       LIMIT ?
       `,
     )
@@ -150,13 +172,16 @@ export function getExecutions(limit = 100): RewindExecution[] {
 export function getExecutionById(id: string): {
   execution: RewindExecution;
   events: RewindEvent[];
+  edges: EventEdge[];
 } | null {
   const row = db
     .prepare(
       `
-      SELECT *
+      SELECT ${EXECUTION_COLUMNS}
       FROM executions
-      WHERE id = ?
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.id = ?
       `,
     )
     .get(id) as ExecutionRow | undefined;
@@ -168,5 +193,24 @@ export function getExecutionById(id: string): {
   return {
     execution: mapExecution(row),
     events: getEventsByExecutionId(id),
+    edges: getEdgesForExecution(id),
+  };
+}
+
+export function getExecutionGraphById(id: string): {
+  execution: RewindExecution;
+  events: RewindEvent[];
+  edges: EventEdge[];
+  graph: ExecutionGraph;
+} | null {
+  const result = getExecutionById(id);
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    ...result,
+    graph: buildExecutionGraph(result.events, result.edges),
   };
 }

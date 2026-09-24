@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
+import { recordParentEdge } from "@/lib/event-edges";
 import { recordExecutionEvent } from "@/lib/executions";
 
 export const runtime = "nodejs";
@@ -331,6 +332,15 @@ export async function POST(request: NextRequest) {
             status,
             traceId,
             environment,
+          });
+        }
+
+        if (parentEventId) {
+          recordParentEdge({
+            executionId,
+            parentEventId,
+            childEventId: id,
+            createdAt,
           });
         }
       })();
