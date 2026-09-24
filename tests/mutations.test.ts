@@ -139,7 +139,14 @@ describe("parseMutations", () => {
     ],
     [
       "a Rewind replay header",
-      [{ target: "header", op: "set", name: "X-Rewind-Execution-Id", value: "x" }],
+      [
+        {
+          target: "header",
+          op: "set",
+          name: "X-Rewind-Execution-Id",
+          value: "x",
+        },
+      ],
       "cannot be changed",
     ],
     [
@@ -302,8 +309,14 @@ describe("applyMutations", () => {
 
 describe("describeMutation", () => {
   it.each<[Mutation, string]>([
-    [{ target: "payload", op: "set", path: "amount", value: 0 }, "payload.amount = 0"],
-    [{ target: "payload", op: "remove", path: "userId" }, "remove payload.userId"],
+    [
+      { target: "payload", op: "set", path: "amount", value: 0 },
+      "payload.amount = 0",
+    ],
+    [
+      { target: "payload", op: "remove", path: "userId" },
+      "remove payload.userId",
+    ],
     [
       { target: "header", op: "set", name: "x-flag", value: "off" },
       'header.x-flag = "off"',

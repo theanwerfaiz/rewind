@@ -1,10 +1,6 @@
 import { getExecutionContext } from "@/lib/execution-context";
 import type { EventStatus } from "@/lib/mock-events";
-import {
-  redactHeaders,
-  redactJson,
-  redactUrl,
-} from "@/lib/redaction";
+import { redactHeaders, redactJson, redactUrl } from "@/lib/redaction";
 import { rewind } from "@/lib/rewind";
 
 /**
@@ -68,7 +64,10 @@ async function readBounded(
     if (sizeBytes > MAX_RECORDED_BODY_BYTES) {
       truncated = true;
       chunks.push(
-        value.subarray(0, value.byteLength - (sizeBytes - MAX_RECORDED_BODY_BYTES)),
+        value.subarray(
+          0,
+          value.byteLength - (sizeBytes - MAX_RECORDED_BODY_BYTES),
+        ),
       );
       // Cancelling one branch of a tee settles only once the other branch
       // (the caller's) is cancelled too, so it must not be awaited.

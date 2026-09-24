@@ -211,7 +211,10 @@ describe("execution identity", () => {
   });
 
   it.each([
-    ["no replay id", { "x-rewind-execution-id": "exe_0f0e0d0c-0b0a-4908-8706-050403020100" }],
+    [
+      "no replay id",
+      { "x-rewind-execution-id": "exe_0f0e0d0c-0b0a-4908-8706-050403020100" },
+    ],
     [
       "a malformed execution id",
       {

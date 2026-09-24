@@ -11,7 +11,11 @@ import { REDACTED_HEADERS } from "./redaction";
  */
 export type DependencyMode = "recorded" | "blocked" | "live";
 
-export const DEPENDENCY_MODES: DependencyMode[] = ["recorded", "blocked", "live"];
+export const DEPENDENCY_MODES: DependencyMode[] = [
+  "recorded",
+  "blocked",
+  "live",
+];
 
 export const DEFAULT_DEPENDENCY_MODE: DependencyMode = "recorded";
 
@@ -61,8 +65,7 @@ export function dependencyKey(title: string) {
 
 export function isDependencyMode(value: unknown): value is DependencyMode {
   return (
-    typeof value === "string" &&
-    (DEPENDENCY_MODES as string[]).includes(value)
+    typeof value === "string" && (DEPENDENCY_MODES as string[]).includes(value)
   );
 }
 
@@ -218,7 +221,10 @@ export class DependencyReplayer {
       return {
         kind: "fail",
         mode: "mutated",
-        error: new DependencyBlockedError(title, "made unavailable by experiment"),
+        error: new DependencyBlockedError(
+          title,
+          "made unavailable by experiment",
+        ),
       };
     }
 

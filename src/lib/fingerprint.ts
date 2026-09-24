@@ -29,7 +29,8 @@ export type FailureFingerprint = {
 
 const MAX_MESSAGE_LENGTH = 200;
 
-const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const UUID =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
 const PREFIXED_ID = /\b[a-z]{1,8}_[A-Za-z0-9_-]*\d[A-Za-z0-9_-]*\b/g;
 

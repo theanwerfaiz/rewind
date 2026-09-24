@@ -153,8 +153,7 @@ function EventList({
   return (
     <section className="rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
       <h2 className="text-sm font-medium text-slate-200">
-        {title}{" "}
-        <span className="text-slate-600">({events.length})</span>
+        {title} <span className="text-slate-600">({events.length})</span>
       </h2>
 
       <ul className="mt-3 space-y-1.5">
@@ -321,9 +320,7 @@ export default async function CompareExecutionsPage({
 
         {diff.summary.length > 0 && (
           <section className="mb-6 rounded-2xl border border-white/[0.07] bg-[#0d1320] p-5">
-            <h2 className="text-sm font-medium text-slate-200">
-              What changed
-            </h2>
+            <h2 className="text-sm font-medium text-slate-200">What changed</h2>
 
             <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
               {diff.summary.map((line) => (

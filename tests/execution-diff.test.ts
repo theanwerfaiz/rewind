@@ -58,7 +58,9 @@ function snapshot(
       createdAt: event.timestamp,
     }));
 
-  const ends = specs.map((spec, index) => (spec.at ?? index * 10) + (spec.duration ?? 0));
+  const ends = specs.map(
+    (spec, index) => (spec.at ?? index * 10) + (spec.duration ?? 0),
+  );
 
   const failed = specs.some((spec) => spec.status === "error");
 
@@ -83,7 +85,14 @@ const failingCheckout: Spec[] = [
     duration: 180,
     body: { ok: false },
   },
-  { id: "cart", type: "database.query", title: "DB: load cart", parent: "root", at: 10, duration: 5 },
+  {
+    id: "cart",
+    type: "database.query",
+    title: "DB: load cart",
+    parent: "root",
+    at: 10,
+    duration: 5,
+  },
   {
     id: "pay",
     title: "POST /api/payments",
@@ -101,7 +110,14 @@ const failingCheckout: Spec[] = [
     parent: "pay",
     at: 160,
   },
-  { id: "rollback", type: "database.query", title: "DB: rollback order", parent: "root", at: 175, duration: 5 },
+  {
+    id: "rollback",
+    type: "database.query",
+    title: "DB: rollback order",
+    parent: "root",
+    at: 175,
+    duration: 5,
+  },
 ];
 
 const fixedCheckout: Spec[] = [
@@ -112,9 +128,30 @@ const fixedCheckout: Spec[] = [
     duration: 60,
     body: { ok: true, orderId: "ord_1" },
   },
-  { id: "cart", type: "database.query", title: "DB: load cart", parent: "root", at: 10, duration: 5 },
-  { id: "pay", title: "POST /api/payments", httpStatus: 201, parent: "root", at: 20, duration: 30 },
-  { id: "commit", type: "database.query", title: "DB: commit order", parent: "root", at: 55, duration: 4 },
+  {
+    id: "cart",
+    type: "database.query",
+    title: "DB: load cart",
+    parent: "root",
+    at: 10,
+    duration: 5,
+  },
+  {
+    id: "pay",
+    title: "POST /api/payments",
+    httpStatus: 201,
+    parent: "root",
+    at: 20,
+    duration: 30,
+  },
+  {
+    id: "commit",
+    type: "database.query",
+    title: "DB: commit order",
+    parent: "root",
+    at: 55,
+    duration: 4,
+  },
 ];
 
 describe("diffExecutions", () => {
@@ -221,18 +258,51 @@ describe("diffExecutions", () => {
 
   it("points at the new path, not the root, when children were added", () => {
     const failing: Spec[] = [
-      { id: "root", title: "POST /api/checkout", status: "error", httpStatus: 500 },
-      { id: "cart", type: "database.query", title: "DB: load cart", parent: "root", at: 5 },
-      { id: "timeout", type: "error", title: "Payment timeout", status: "error", parent: "root", at: 70 },
+      {
+        id: "root",
+        title: "POST /api/checkout",
+        status: "error",
+        httpStatus: 500,
+      },
+      {
+        id: "cart",
+        type: "database.query",
+        title: "DB: load cart",
+        parent: "root",
+        at: 5,
+      },
+      {
+        id: "timeout",
+        type: "error",
+        title: "Payment timeout",
+        status: "error",
+        parent: "root",
+        at: 70,
+      },
     ];
 
     const succeeding: Spec[] = [
       { id: "root", title: "POST /api/checkout", httpStatus: 200 },
-      { id: "cart", type: "database.query", title: "DB: load cart", parent: "root", at: 5 },
-      { id: "charge", type: "agent.action", title: "Stripe: charge", parent: "root", at: 14 },
+      {
+        id: "cart",
+        type: "database.query",
+        title: "DB: load cart",
+        parent: "root",
+        at: 5,
+      },
+      {
+        id: "charge",
+        type: "agent.action",
+        title: "Stripe: charge",
+        parent: "root",
+        at: 14,
+      },
     ];
 
-    const diff = diffExecutions(snapshot("a", failing), snapshot("b", succeeding));
+    const diff = diffExecutions(
+      snapshot("a", failing),
+      snapshot("b", succeeding),
+    );
 
     expect(diff.firstDivergence).toMatchObject({
       kind: "added",
@@ -278,13 +348,31 @@ describe("diffExecutions", () => {
   it("aligns repeated sibling events by occurrence", () => {
     const twoQueries: Spec[] = [
       { id: "root", title: "GET /api/report" },
-      { id: "q1", type: "database.query", title: "DB: query", parent: "root", at: 5 },
-      { id: "q2", type: "database.query", title: "DB: query", parent: "root", at: 10 },
+      {
+        id: "q1",
+        type: "database.query",
+        title: "DB: query",
+        parent: "root",
+        at: 5,
+      },
+      {
+        id: "q2",
+        type: "database.query",
+        title: "DB: query",
+        parent: "root",
+        at: 10,
+      },
     ];
 
     const threeQueries: Spec[] = [
       ...twoQueries,
-      { id: "q3", type: "database.query", title: "DB: query", parent: "root", at: 15 },
+      {
+        id: "q3",
+        type: "database.query",
+        title: "DB: query",
+        parent: "root",
+        at: 15,
+      },
     ];
 
     const diff = diffExecutions(
@@ -302,8 +390,12 @@ describe("diffExecutions", () => {
   });
 
   it("does not treat timing noise as a behaviour change", () => {
-    const slow: Spec[] = [{ id: "root", title: "GET /api/health", duration: 100 }];
-    const jitter: Spec[] = [{ id: "root", title: "GET /api/health", duration: 104 }];
+    const slow: Spec[] = [
+      { id: "root", title: "GET /api/health", duration: 100 },
+    ];
+    const jitter: Spec[] = [
+      { id: "root", title: "GET /api/health", duration: 104 },
+    ];
 
     const diff = diffExecutions(snapshot("a", slow), snapshot("b", jitter));
 
@@ -313,8 +405,12 @@ describe("diffExecutions", () => {
   });
 
   it("reports a significant slowdown without calling it divergence", () => {
-    const fast: Spec[] = [{ id: "root", title: "GET /api/health", duration: 20 }];
-    const slow: Spec[] = [{ id: "root", title: "GET /api/health", duration: 200 }];
+    const fast: Spec[] = [
+      { id: "root", title: "GET /api/health", duration: 20 },
+    ];
+    const slow: Spec[] = [
+      { id: "root", title: "GET /api/health", duration: 200 },
+    ];
 
     const diff = diffExecutions(snapshot("a", fast), snapshot("b", slow));
 
@@ -326,8 +422,12 @@ describe("diffExecutions", () => {
 
   it("reports request payload changes", () => {
     const diff = diffExecutions(
-      snapshot("a", [{ id: "root", title: "POST /api/pay", payload: { amount: 10 } }]),
-      snapshot("b", [{ id: "root", title: "POST /api/pay", payload: { amount: 0 } }]),
+      snapshot("a", [
+        { id: "root", title: "POST /api/pay", payload: { amount: 10 } },
+      ]),
+      snapshot("b", [
+        { id: "root", title: "POST /api/pay", payload: { amount: 0 } },
+      ]),
     );
 
     expect(diff.changed[0].payloadChanges).toEqual([

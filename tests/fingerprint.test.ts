@@ -239,9 +239,7 @@ describe("computeFailureFingerprint", () => {
       },
     ]);
 
-    expect(viaService?.signature.path).toBe(
-      "http.request>http.request>error",
-    );
+    expect(viaService?.signature.path).toBe("http.request>http.request>error");
     expect(viaService?.id).not.toBe(direct?.id);
   });
 });

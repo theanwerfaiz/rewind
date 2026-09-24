@@ -20,9 +20,9 @@ function mockCapture() {
 }
 
 function mockDependency(response: () => Response | Promise<Response>) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
-    response(),
-  );
+  return vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async () => response());
 }
 
 describe("rewindFetch", () => {
@@ -108,24 +108,21 @@ describe("rewindFetch", () => {
       }),
     );
 
-    await rewindFetch(
-      "https://api.example.test/login?api_key=abc123&page=2",
-      {
-        method: "POST",
-        headers: {
-          authorization: "Bearer secret",
-          "content-type": "application/json",
-          "x-trace": "keep-me",
-        },
-        body: JSON.stringify({
-          username: "ada",
-          password: "hunter2",
-          card: {
-            cardNumber: "4242424242424242",
-          },
-        }),
+    await rewindFetch("https://api.example.test/login?api_key=abc123&page=2", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer secret",
+        "content-type": "application/json",
+        "x-trace": "keep-me",
       },
-    );
+      body: JSON.stringify({
+        username: "ada",
+        password: "hunter2",
+        card: {
+          cardNumber: "4242424242424242",
+        },
+      }),
+    });
 
     const event = captureMock.mock.calls[0][0];
 
@@ -234,7 +231,9 @@ describe("rewindFetch", () => {
 
     expect(recorded.response.truncated).toBe(true);
     expect(recorded.response.body).toHaveLength(MAX_RECORDED_BODY_BYTES);
-    expect(recorded.response.sizeBytes).toBeGreaterThan(MAX_RECORDED_BODY_BYTES);
+    expect(recorded.response.sizeBytes).toBeGreaterThan(
+      MAX_RECORDED_BODY_BYTES,
+    );
   });
 
   it("does not buffer streaming responses", async () => {

@@ -21,7 +21,9 @@ afterEach(() => {
 
 const CHARGES = "POST https://api.stripe.test/v1/charges";
 
-function fixture(overrides: Partial<DependencyFixture> = {}): DependencyFixture {
+function fixture(
+  overrides: Partial<DependencyFixture> = {},
+): DependencyFixture {
   return {
     key: CHARGES,
     title: CHARGES,
@@ -318,12 +320,22 @@ describe("dependency mutations", () => {
     ],
     [
       "an invalid status",
-      { target: "dependency", op: "set", match: CHARGES, override: { status: 42 } },
+      {
+        target: "dependency",
+        op: "set",
+        match: CHARGES,
+        override: { status: 42 },
+      },
       "status must be",
     ],
     [
       "a negative delay",
-      { target: "dependency", op: "set", match: CHARGES, override: { delayMs: -1 } },
+      {
+        target: "dependency",
+        op: "set",
+        match: CHARGES,
+        override: { delayMs: -1 },
+      },
       "delayMs must be",
     ],
     [

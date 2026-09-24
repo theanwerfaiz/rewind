@@ -217,7 +217,11 @@ export function parseMutations(
     if (target === "dependency") {
       const match = raw.match;
 
-      if (typeof match !== "string" || match.trim() === "" || match.length > 2048) {
+      if (
+        typeof match !== "string" ||
+        match.trim() === "" ||
+        match.length > 2048
+      ) {
         return {
           error: `${label}: match must name a dependency, e.g. "POST https://api.example.com/v1/charges".`,
         };
@@ -245,7 +249,11 @@ export function parseMutations(
 
       if (
         status !== undefined &&
-        !(Number.isInteger(status) && (status as number) >= 200 && (status as number) <= 599)
+        !(
+          Number.isInteger(status) &&
+          (status as number) >= 200 &&
+          (status as number) <= 599
+        )
       ) {
         return {
           error: `${label}: status must be an HTTP status between 200 and 599.`,
@@ -265,7 +273,11 @@ export function parseMutations(
         };
       }
 
-      if (status === undefined && delayMs === undefined && !("body" in override)) {
+      if (
+        status === undefined &&
+        delayMs === undefined &&
+        !("body" in override)
+      ) {
         return {
           error: `${label}: override must set status, body, or delayMs.`,
         };
@@ -360,7 +372,9 @@ export function applyMutations(
   mutations: Mutation[],
 ): ReplayRequest {
   let payload: unknown =
-    request.payload === undefined ? undefined : structuredClone(request.payload);
+    request.payload === undefined
+      ? undefined
+      : structuredClone(request.payload);
 
   const headers = {
     ...request.headers,

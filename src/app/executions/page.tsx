@@ -75,8 +75,8 @@ export default async function ExecutionsPage() {
             </h2>
 
             <p className="mx-auto mt-1 max-w-sm text-xs text-slate-600">
-              Capture your first request to create an execution you can
-              replay and turn into a test.
+              Capture your first request to create an execution you can replay
+              and turn into a test.
             </p>
           </div>
         ) : (

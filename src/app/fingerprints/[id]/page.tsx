@@ -88,7 +88,9 @@ export default async function FingerprintPage({
 
               <Row
                 label="HTTP status"
-                value={signature.status !== null ? String(signature.status) : "—"}
+                value={
+                  signature.status !== null ? String(signature.status) : "—"
+                }
               />
 
               <Row label="Failure path" value={signature.path} />

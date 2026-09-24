@@ -293,9 +293,7 @@ function listItems(prefix: string, events: RewindEvent[]) {
     .map((event) => `${prefix}: ${event.title}`);
 
   if (events.length > MAX_SUMMARY_ITEMS) {
-    lines.push(
-      `${prefix}: +${events.length - MAX_SUMMARY_ITEMS} more`,
-    );
+    lines.push(`${prefix}: +${events.length - MAX_SUMMARY_ITEMS} more`);
   }
 
   return lines;

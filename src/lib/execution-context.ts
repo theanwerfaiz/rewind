@@ -30,6 +30,9 @@ export function getExecutionContext(): ExecutionContext | undefined {
  * Runs `callback` inside an execution. Events captured within it inherit the
  * execution ID and use `context.eventId` as their parent event.
  */
-export function runInExecution<T>(context: ExecutionContext, callback: () => T) {
+export function runInExecution<T>(
+  context: ExecutionContext,
+  callback: () => T,
+) {
   return executionStorage.run(context, callback);
 }

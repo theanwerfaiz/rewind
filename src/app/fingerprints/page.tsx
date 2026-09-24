@@ -46,8 +46,8 @@ export default async function FingerprintsPage() {
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
               Failed executions grouped by where and how they failed. IDs,
-              amounts, and timings are ignored, so the same bug recurring
-              lands in one group.
+              amounts, and timings are ignored, so the same bug recurring lands
+              in one group.
             </p>
           </div>
         </div>
@@ -61,8 +61,8 @@ export default async function FingerprintsPage() {
             </h2>
 
             <p className="mx-auto mt-1 max-w-sm text-xs text-slate-600">
-              When a captured execution fails, Rewind groups it here with
-              every other occurrence of the same failure.
+              When a captured execution fails, Rewind groups it here with every
+              other occurrence of the same failure.
             </p>
           </div>
         ) : (

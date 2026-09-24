@@ -109,8 +109,8 @@ export default async function ReplayLabPage({
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
             Branch this captured request into experiments. The original stays
-            exactly as captured; every experiment is stored with its
-            mutations and the execution it produced.
+            exactly as captured; every experiment is stored with its mutations
+            and the execution it produced.
           </p>
         </div>
 
@@ -196,9 +196,7 @@ export default async function ReplayLabPage({
 
         <section className="mt-8 overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d1320]">
           <div className="border-b border-white/[0.06] px-5 py-4">
-            <h2 className="text-sm font-medium text-slate-200">
-              Experiments
-            </h2>
+            <h2 className="text-sm font-medium text-slate-200">Experiments</h2>
 
             <p className="mt-0.5 text-xs text-slate-600">
               Every replay of this request, newest first.

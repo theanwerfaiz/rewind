@@ -251,8 +251,8 @@ export default async function ExecutionPage({
 
             <p className="mt-1 text-xs text-red-300/70">
               Where the failure started, +
-              {formatMs(timing(firstFailure).offsetMs)} into the execution.
-              Path from the root:
+              {formatMs(timing(firstFailure).offsetMs)} into the execution. Path
+              from the root:
             </p>
 
             <ol className="mt-5 flex flex-wrap items-center gap-2 text-xs">

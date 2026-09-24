@@ -136,10 +136,7 @@ describe("buildExecutionGraph", () => {
       [edge("y", "x"), edge("x", "y")],
     );
 
-    expect(graph.nodes.map((node) => node.event.id).sort()).toEqual([
-      "x",
-      "y",
-    ]);
+    expect(graph.nodes.map((node) => node.event.id).sort()).toEqual(["x", "y"]);
 
     expect(graph.rootIds).toHaveLength(1);
   });
