@@ -140,7 +140,7 @@ export function InvariantPanel({
   );
 
   return (
-    <section className="mb-8 rounded-2xl border border-line bg-panel p-6">
+    <section className="rounded-xl border border-line bg-panel p-6">
       <h2 className="text-sm font-medium text-ink">Invariants</h2>
 
       <p className="mt-1 text-xs text-faint">

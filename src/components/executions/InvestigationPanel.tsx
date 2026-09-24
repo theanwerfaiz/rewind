@@ -111,7 +111,7 @@ export function InvestigationPanel({
     results?.find((result) => result.hypothesisId === hypothesisId);
 
   return (
-    <section className="mb-8 rounded-2xl border border-line bg-panel p-6">
+    <section className="rounded-xl border border-line bg-panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-medium text-ink">Investigation</h2>

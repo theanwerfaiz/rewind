@@ -1,15 +1,22 @@
+import { ChevronRight, FlaskConical, Package } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
+import { ExecutionGraph, type GraphRow } from "@/components/executions/ExecutionGraph";
 import { InvestigationPanel } from "@/components/executions/InvestigationPanel";
 import {
   InvariantPanel,
   type InvariantSuggestion,
 } from "@/components/executions/InvariantPanel";
-import type { GraphNode } from "@/lib/event-graph";
+import { IdChip } from "@/components/ui/IdChip";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ButtonLink, Panel } from "@/components/ui/primitives";
+import { Badge, HttpStatus, StatusBadge } from "@/components/ui/StatusBadge";
+import { WorkspaceTabs, type WorkspaceTab } from "@/components/ui/WorkspaceTabs";
 import { parseDurationMs } from "@/lib/events";
 import { getExecutionGraphById } from "@/lib/executions";
+import { formatDateTime, formatMs, formatRelative, shortId } from "@/lib/format";
 import { getInvariantsForExecution } from "@/lib/invariant-store";
 import { buildInvestigation } from "@/lib/investigation";
 import {
@@ -17,89 +24,15 @@ import {
   evaluateInvariants,
   type InvariantDefinition,
 } from "@/lib/invariants";
-import { getReplayByResultExecutionId } from "@/lib/replays";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Badge, StatusBadge } from "@/components/ui/StatusBadge";
-import { IdChip } from "@/components/ui/IdChip";
-import { ButtonLink } from "@/components/ui/primitives";
-import { shortId } from "@/lib/format";
-
-function getEventIcon(type: string) {
-  switch (type) {
-    case "webhook.received":
-      return "↗";
-
-    case "http.request":
-      return "→";
-
-    case "http.dependency":
-      return "⇄";
-
-    case "error":
-      return "!";
-
-    case "database.query":
-      return "◇";
-
-    case "agent.action":
-      return "✦";
-
-    case "command":
-      return "$";
-
-    case "deployment":
-      return "▲";
-
-    case "config.change":
-      return "⚙";
-
-    default:
-      return "•";
-  }
-}
-
-function statusDotClass(status: string) {
-  switch (status) {
-    case "success":
-      return "bg-success";
-
-    case "error":
-      return "bg-failure";
-
-    default:
-      return "bg-faint";
-  }
-}
-
-function formatMs(ms: number) {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(ms >= 10_000 ? 0 : 2)}s`;
-  }
-
-  return `${Math.round(ms)}ms`;
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-panel p-5">
-      <div className="text-xs uppercase tracking-wider text-faint">
-        {label}
-      </div>
-
-      <div
-        title={value}
-        className="mt-2 truncate font-mono text-sm text-ink"
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
+import { describeMutation } from "@/lib/mutations";
+import { getReplayByResultExecutionId, getReplaysForEvent } from "@/lib/replays";
 
 export default async function ExecutionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   await connection();
 
@@ -180,27 +113,193 @@ export default async function ExecutionPage({
 
   const totalMs = Math.max(Date.parse(execution.endedAt) - startedAt, 0);
 
-  const scaleMs = Math.max(totalMs, 1);
-
-  const failurePath = new Set(graph.failurePath);
-
   const nodesById = new Map(graph.nodes.map((node) => [node.event.id, node]));
+
+  const parentOf = new Map<string, string>();
+
+  for (const node of graph.nodes) {
+    for (const childId of node.childIds) {
+      parentOf.set(childId, node.event.id);
+    }
+  }
+
+  const rows: GraphRow[] = graph.nodes.map((node) => ({
+    id: node.event.id,
+    title: node.event.title,
+    type: node.event.type,
+    status: node.event.status,
+    source: node.event.source ?? null,
+    timestamp: node.event.timestamp,
+    depth: node.depth,
+    childIds: node.childIds,
+    parentId: parentOf.get(node.event.id) ?? null,
+    orphan: node.orphan,
+    offsetMs: Math.max(Date.parse(node.event.timestamp) - startedAt, 0),
+    durationMs: parseDurationMs(node.event.duration) ?? 0,
+    payload: node.event.payload,
+    metadata: node.event.metadata ?? null,
+  }));
 
   const firstFailure = graph.firstFailureId
     ? nodesById.get(graph.firstFailureId)
     : undefined;
 
-  function timing(node: GraphNode) {
-    const offsetMs = Math.max(Date.parse(node.event.timestamp) - startedAt, 0);
+  const firstFailureOffset = firstFailure
+    ? Math.max(Date.parse(firstFailure.event.timestamp) - startedAt, 0)
+    : 0;
 
-    const durationMs = parseDurationMs(node.event.duration) ?? 0;
+  // Experiments branch from the root request; a replay shows its siblings.
+  const experimentsEventId = replay?.eventId ?? execution.rootEventId;
 
-    return {
-      offsetMs,
-      durationMs,
-      left: Math.min((offsetMs / scaleMs) * 100, 100),
-      width: Math.max((durationMs / scaleMs) * 100, 0.75),
-    };
+  const experiments =
+    experimentsEventId &&
+    (execution.rootType === "http.request" ||
+      execution.rootType === "webhook.received" ||
+      replay)
+      ? getReplaysForEvent(experimentsEventId)
+      : [];
+
+  const originalExecutionId = replay?.sourceExecutionId ?? execution.id;
+
+  const failingInvariants = invariantResults.filter((item) => !item.passed).length;
+
+  const { tab } = await searchParams;
+
+  const tabs: WorkspaceTab[] = [
+    {
+      value: "graph",
+      label: "Graph",
+      count: execution.eventCount,
+      content: (
+        <ExecutionGraph
+          rows={rows}
+          totalMs={totalMs}
+          failurePath={graph.failurePath}
+          initialSelectedId={graph.firstFailureId ?? graph.rootIds[0] ?? null}
+        />
+      ),
+    },
+  ];
+
+  if (investigation) {
+    tabs.push({
+      value: "investigation",
+      label: "Investigation",
+      content: <InvestigationPanel investigation={investigation} />,
+    });
+  }
+
+  tabs.push({
+    value: "invariants",
+    label: "Invariants",
+    count: invariants.length,
+    tone:
+      invariants.length === 0
+        ? undefined
+        : failingInvariants > 0
+          ? "failure"
+          : "success",
+    content: (
+      <InvariantPanel
+        executionId={execution.id}
+        items={invariants.map((invariant, index) => ({
+          id: invariant.id,
+          description: describeInvariant(invariant),
+          passed: invariantResults[index].passed,
+          actual: invariantResults[index].actual,
+        }))}
+        suggestions={invariantSuggestions}
+      />
+    ),
+  });
+
+  if (experimentsEventId && (experiments.length > 0 || execution.rootType === "http.request" || execution.rootType === "webhook.received")) {
+    tabs.push({
+      value: "experiments",
+      label: "Experiments",
+      count: experiments.length,
+      content: (
+        <Panel
+          title="Experiments"
+          description="Replays of this request, newest first"
+          actions={
+            <ButtonLink href={`/lab/${experimentsEventId}`} variant="primary">
+              <FlaskConical size={14} />
+              New experiment
+            </ButtonLink>
+          }
+          flush
+        >
+          {experiments.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-muted">
+              No experiments yet. Open the Replay Lab to replay this request
+              with changes and see how the application behaves.
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {experiments.map((experiment) => (
+                <li
+                  key={experiment.id}
+                  className={`flex flex-wrap items-center gap-3 px-4 py-3 text-sm ${
+                    experiment.resultExecutionId === execution.id ? "bg-accent-soft" : ""
+                  }`}
+                >
+                  <HttpStatus status={experiment.status} />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-ink">
+                      {experiment.label ?? "Plain replay"}
+                    </div>
+
+                    <div className="mt-0.5 truncate font-mono text-xs text-muted">
+                      {experiment.mutations.length === 0
+                        ? "no mutations"
+                        : experiment.mutations.map(describeMutation).join(" · ")}
+                    </div>
+                  </div>
+
+                  {experiment.dependencyMode && (
+                    <Badge tone="neutral">deps {experiment.dependencyMode}</Badge>
+                  )}
+
+                  <span className="font-mono text-xs tabular-nums text-muted">
+                    {experiment.duration} · {formatRelative(experiment.createdAt)}
+                  </span>
+
+                  <div className="flex gap-3 text-xs">
+                    {experiment.resultExecutionId &&
+                      experiment.resultExecutionId !== execution.id && (
+                        <Link
+                          href={`/executions/${experiment.resultExecutionId}`}
+                          className="text-accent hover:brightness-125"
+                        >
+                          Execution
+                        </Link>
+                      )}
+
+                    {experiment.resultExecutionId && (
+                      <Link
+                        href={`/executions/compare?original=${originalExecutionId}&candidate=${experiment.resultExecutionId}`}
+                        className="text-accent hover:brightness-125"
+                      >
+                        Diff
+                      </Link>
+                    )}
+
+                    <Link
+                      href={`/replays/${experiment.id}`}
+                      className="text-ink-2 hover:text-ink"
+                    >
+                      Details
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      ),
+    });
   }
 
   return (
@@ -218,7 +317,20 @@ export default async function ExecutionPage({
           </>
         }
         title={execution.rootTitle ?? "Execution"}
-        meta={<IdChip id={execution.id} full />}
+        meta={
+          <>
+            <IdChip id={execution.id} full />
+            <span className="font-mono tabular-nums">{formatMs(totalMs)}</span>
+            <span>{execution.eventCount} events</span>
+            {execution.environment && <span>{execution.environment}</span>}
+            {execution.traceId && (
+              <span className="font-mono" title="Trace ID">
+                trace {shortId(execution.traceId, 12)}
+              </span>
+            )}
+            <span>{formatDateTime(execution.startedAt)}</span>
+          </>
+        }
         actions={
           <>
             {execution.rootEventId && (
@@ -228,6 +340,7 @@ export default async function ExecutionPage({
             )}
 
             <ButtonLink href={`/executions/${execution.id}/capsule`}>
+              <Package size={14} />
               Capsule
             </ButtonLink>
 
@@ -235,6 +348,7 @@ export default async function ExecutionPage({
               (execution.rootType === "http.request" ||
                 execution.rootType === "webhook.received") && (
                 <ButtonLink href={`/lab/${execution.rootEventId}`} variant="primary">
+                  <FlaskConical size={14} />
                   Replay Lab
                 </ButtonLink>
               )}
@@ -242,225 +356,83 @@ export default async function ExecutionPage({
         }
       />
 
-      <div className="mb-6 space-y-3 empty:hidden">
+      {execution.capsuleId && (
+        <div className="mb-4 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent">
+          Imported from capsule{" "}
+          <span className="font-mono text-xs">{execution.capsuleId}</span>
+        </div>
+      )}
 
-          {execution.capsuleId && (
-            <div className="mt-4 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent">
-              Imported from capsule{" "}
-              <span className="font-mono text-xs">{execution.capsuleId}</span>
-            </div>
+      {replay && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm">
+          <span className="text-accent">
+            Replay{replay.label ? `: ${replay.label}` : ""}
+          </span>
+
+          {replay.sourceExecutionId && (
+            <Link
+              href={`/executions/compare?original=${replay.sourceExecutionId}&candidate=${execution.id}`}
+              className="text-accent hover:brightness-125"
+            >
+              Diff with original →
+            </Link>
           )}
 
-          {replay && (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-accent/20 bg-accent-soft px-4 py-3 text-sm">
-              <span className="text-accent">
-                Replay{replay.label ? `: ${replay.label}` : ""}
-              </span>
-
-              {replay.sourceExecutionId && (
-                <Link
-                  href={`/executions/compare?original=${replay.sourceExecutionId}&candidate=${execution.id}`}
-                  className="text-accent hover:text-accent"
-                >
-                  Diff with original →
-                </Link>
-              )}
-
-              <Link
-                href={`/lab/${replay.eventId}`}
-                className="text-ink-2 hover:text-ink"
-              >
-                Replay Lab
-              </Link>
-            </div>
-          )}
+          <Link href={`/lab/${replay.eventId}`} className="text-ink-2 hover:text-ink">
+            Replay Lab
+          </Link>
         </div>
+      )}
 
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Stat label="Duration" value={formatMs(totalMs)} />
-
-          <Stat label="Events" value={String(execution.eventCount)} />
-
-          <Stat label="Environment" value={execution.environment ?? "—"} />
-
-          <Stat label="Trace ID" value={execution.traceId ?? "—"} />
-        </div>
-
-        {firstFailure && (
-          <section className="mb-8 rounded-2xl border border-failure/20 bg-failure-soft p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-failure">
-                Failure
+      {firstFailure && (
+        <section className="mb-6 rounded-xl border border-failure/25 bg-failure-soft p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-medium uppercase tracking-wider text-failure">
+                Failure started +{formatMs(firstFailureOffset)} in
               </div>
 
-              {execution.fingerprintId && (
-                <Link
-                  href={`/fingerprints/${execution.fingerprintId}`}
-                  className="rounded-lg border border-failure/20 px-2.5 py-1 font-mono text-xs text-failure transition hover:border-failure/40"
-                >
-                  {execution.fingerprintId} →
-                </Link>
-              )}
-            </div>
-
-            <h2 className="mt-2 text-lg font-medium text-failure">
-              {firstFailure.event.title}
-            </h2>
-
-            <p className="mt-1 text-xs text-failure">
-              Where the failure started, +
-              {formatMs(timing(firstFailure).offsetMs)} into the execution. Path
-              from the root:
-            </p>
-
-            <ol className="mt-5 flex flex-wrap items-center gap-2 text-xs">
-              {graph.failurePath.map((eventId, index) => {
-                const node = nodesById.get(eventId);
-
-                if (!node) {
-                  return null;
-                }
-
-                return (
-                  <li key={eventId} className="flex items-center gap-2">
-                    {index > 0 && <span className="text-failure">→</span>}
-
-                    <Link
-                      href={`/events/${eventId}`}
-                      className="rounded-lg border border-failure/20 bg-canvas px-2.5 py-1.5 text-failure transition hover:border-failure/40"
-                    >
-                      {node.event.title}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        )}
-
-        {investigation && <InvestigationPanel investigation={investigation} />}
-
-        <InvariantPanel
-          executionId={execution.id}
-          items={invariants.map((invariant, index) => ({
-            id: invariant.id,
-            description: describeInvariant(invariant),
-            passed: invariantResults[index].passed,
-            actual: invariantResults[index].actual,
-          }))}
-          suggestions={invariantSuggestions}
-        />
-
-        <section className="rounded-2xl border border-line bg-panel p-6">
-          <div className="mb-5 flex items-end justify-between gap-4 border-b border-line pb-5">
-            <div>
-              <h2 className="text-sm font-medium text-ink">
-                Execution Graph
+              <h2 className="mt-1 text-base font-medium text-ink">
+                {firstFailure.event.title}
               </h2>
-
-              <p className="mt-1 text-xs text-faint">
-                Events nested under the event that caused them, in the order
-                they happened.
-              </p>
             </div>
 
-            <span className="shrink-0 font-mono text-xs text-faint">
-              0 — {formatMs(totalMs)}
-            </span>
+            {execution.fingerprintId && (
+              <Link
+                href={`/fingerprints/${execution.fingerprintId}`}
+                className="rounded-lg border border-failure/30 px-2.5 py-1 font-mono text-xs text-failure transition hover:border-failure/60"
+              >
+                {shortId(execution.fingerprintId)} · all occurrences →
+              </Link>
+            )}
           </div>
 
-          <ol className="space-y-1">
-            {graph.nodes.map((node) => {
-              const { offsetMs, durationMs, left, width } = timing(node);
+          <ol className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+            {graph.failurePath.map((eventId, index) => {
+              const node = nodesById.get(eventId);
 
-              const onFailurePath = failurePath.has(node.event.id);
+              if (!node) {
+                return null;
+              }
 
               return (
-                <li key={node.event.id}>
+                <li key={eventId} className="flex items-center gap-1.5">
+                  {index > 0 && <ChevronRight size={12} className="text-failure" />}
+
                   <Link
-                    href={`/events/${node.event.id}`}
-                    className={`group grid grid-cols-1 items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-panel md:grid-cols-[minmax(0,1fr)_minmax(0,40%)] ${
-                      onFailurePath ? "bg-failure-soft" : ""
-                    }`}
+                    href={`/events/${eventId}`}
+                    className="rounded-md border border-failure/20 bg-canvas px-2 py-1 text-ink-2 transition hover:border-failure/50 hover:text-ink"
                   >
-                    <div
-                      className="flex min-w-0 items-center gap-3"
-                      style={{
-                        paddingLeft: `${node.depth * 24}px`,
-                      }}
-                    >
-                      {node.depth > 0 && (
-                        <span className="-ml-3 font-mono text-xs text-faint">
-                          └
-                        </span>
-                      )}
-
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-mono text-xs ${
-                          node.event.status === "error"
-                            ? "border-failure/30 text-failure"
-                            : "border-line text-ink-2 group-hover:text-ink"
-                        }`}
-                      >
-                        {getEventIcon(node.event.type)}
-                      </span>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm text-ink group-hover:text-ink">
-                            {node.event.title}
-                          </span>
-
-                          <span
-                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusDotClass(
-                              node.event.status,
-                            )}`}
-                          />
-
-                          {node.orphan && (
-                            <span
-                              title="This event names a parent that was not captured."
-                              className="shrink-0 rounded bg-warning-soft px-1.5 py-0.5 text-xs text-warning"
-                            >
-                              missing parent
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-0.5 truncate text-xs text-faint">
-                          {node.event.type}
-                          {node.event.source ? ` • ${node.event.source}` : ""}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-2 flex-1 rounded-full bg-raised">
-                        <div
-                          className={`absolute top-0 h-2 rounded-full ${
-                            node.event.status === "error"
-                              ? "bg-failure"
-                              : "bg-accent/70"
-                          }`}
-                          style={{
-                            left: `${left}%`,
-                            width: `${Math.min(width, 100 - left)}%`,
-                            minWidth: "4px",
-                          }}
-                        />
-                      </div>
-
-                      <span className="w-28 shrink-0 text-right font-mono text-xs text-faint">
-                        +{formatMs(offsetMs)}
-                        {durationMs > 0 ? ` · ${formatMs(durationMs)}` : ""}
-                      </span>
-                    </div>
+                    {node.event.title}
                   </Link>
                 </li>
               );
             })}
           </ol>
         </section>
-      </>
+      )}
+
+      <WorkspaceTabs tabs={tabs} initial={tab} />
+    </>
   );
 }
