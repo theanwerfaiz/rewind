@@ -4,15 +4,18 @@ import fs from "fs";
 
 import { migrateDatabase } from "@/lib/db-migrations";
 
-const dataDirectory = path.join(process.cwd(), "data");
+// REWIND_DB_PATH lets tests (and other instances) use their own file.
+const databasePath =
+  process.env.REWIND_DB_PATH ??
+  path.join(process.cwd(), "data", "rewind.db");
+
+const dataDirectory = path.dirname(databasePath);
 
 if (!fs.existsSync(dataDirectory)) {
   fs.mkdirSync(dataDirectory, {
     recursive: true,
   });
 }
-
-const databasePath = path.join(dataDirectory, "rewind.db");
 
 const globalForDatabase = globalThis as unknown as {
   rewindDatabase?: Database.Database;
