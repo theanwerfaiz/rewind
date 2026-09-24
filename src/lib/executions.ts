@@ -222,6 +222,26 @@ export function getExecutions(limit = 100): RewindExecution[] {
   return rows.map(mapExecution);
 }
 
+/** The newest successful executions, replays excluded. */
+export function getRecentSuccessfulExecutions(limit = 500): RewindExecution[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT ${EXECUTION_COLUMNS}
+      FROM executions
+      LEFT JOIN events AS root
+        ON root.id = executions.root_event_id
+      WHERE executions.status = 'success'
+        AND NOT ${isReplayExecutionSql("executions")}
+      ORDER BY executions.started_at DESC
+      LIMIT ?
+      `,
+    )
+    .all(limit) as ExecutionRow[];
+
+  return rows.map(mapExecution);
+}
+
 export function getExecutionsByFingerprint(
   fingerprintId: string,
   limit = 100,

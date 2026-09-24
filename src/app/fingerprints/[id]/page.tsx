@@ -1,31 +1,18 @@
+import { GitCompareArrows } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { getExecutionsByFingerprint } from "@/lib/executions";
-import { getFingerprintById } from "@/lib/fingerprints";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Badge } from "@/components/ui/StatusBadge";
+import { TrendBars } from "@/components/fingerprints/TrendBars";
+import { EventIcon } from "@/components/ui/EventIcon";
 import { IdChip } from "@/components/ui/IdChip";
-import { shortId } from "@/lib/format";
-
-function formatDateTime(timestamp: string) {
-  return new Date(timestamp).toLocaleString();
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0">
-      <span className="text-xs uppercase tracking-wider text-muted">
-        {label}
-      </span>
-
-      <span className="break-all font-mono text-sm text-ink">
-        {value}
-      </span>
-    </div>
-  );
-}
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ButtonLink, Panel } from "@/components/ui/primitives";
+import { Badge, StatusDot } from "@/components/ui/StatusBadge";
+import { getExecutionsByFingerprint } from "@/lib/executions";
+import { getFingerprintTrend, getLastKnownGood } from "@/lib/fingerprint-history";
+import { getFingerprintById } from "@/lib/fingerprints";
+import { formatDateTime, formatRelative, formatSpan, shortId } from "@/lib/format";
 
 export default async function FingerprintPage({
   params,
@@ -45,6 +32,12 @@ export default async function FingerprintPage({
   const executions = getExecutionsByFingerprint(id);
 
   const { signature } = fingerprint;
+
+  const trend = getFingerprintTrend(fingerprint.id);
+
+  const trendTotal = trend.reduce((total, bucket) => total + bucket.count, 0);
+
+  const lastGood = getLastKnownGood(fingerprint);
 
   return (
     <>
@@ -66,79 +59,120 @@ export default async function FingerprintPage({
         meta={<IdChip id={fingerprint.id} full />}
       />
 
-        <div className="mb-8 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl border border-line bg-panel p-6">
-            <h2 className="mb-5 text-sm font-medium text-ink">
-              Signature
-            </h2>
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <Panel
+          title="Last 14 days"
+          description={`${trendTotal} ${trendTotal === 1 ? "occurrence" : "occurrences"} · first seen ${formatRelative(fingerprint.firstSeenAt)}, last ${formatRelative(fingerprint.lastSeenAt)}`}
+        >
+          <TrendBars days={trend} />
+        </Panel>
 
-            <div className="space-y-4">
-              <Row label="Endpoint" value={signature.endpoint} />
+        <Panel
+          title="Last known good"
+          description="Newest successful run of the same endpoint"
+        >
+          {lastGood ? (
+            <div className="flex flex-col gap-3">
+              <Link
+                href={`/executions/${lastGood.id}`}
+                className="flex items-center gap-2 text-sm text-ink hover:text-accent"
+              >
+                <StatusDot status="success" />
+                <span className="truncate">{lastGood.rootTitle}</span>
+              </Link>
 
-              <Row label="Origin event type" value={signature.originType} />
-
-              <Row
-                label="HTTP status"
-                value={
-                  signature.status !== null ? String(signature.status) : "—"
-                }
-              />
-
-              <Row label="Failure path" value={signature.path} />
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-line bg-panel p-6">
-            <h2 className="mb-5 text-sm font-medium text-ink">History</h2>
-
-            <div className="space-y-4">
-              <Row
-                label="First seen"
-                value={formatDateTime(fingerprint.firstSeenAt)}
-              />
-
-              <Row
-                label="Last seen"
-                value={formatDateTime(fingerprint.lastSeenAt)}
-              />
-
-              <Row
-                label="First execution"
-                value={fingerprint.representativeExecutionId}
-              />
-            </div>
-          </section>
-        </div>
-
-        <section className="overflow-hidden rounded-2xl border border-line bg-panel">
-          <h2 className="border-b border-line px-5 py-4 text-sm font-medium text-ink">
-            Executions that failed this way
-          </h2>
-
-          {executions.map((execution) => (
-            <Link
-              key={execution.id}
-              href={`/executions/${execution.id}`}
-              className="group flex items-center gap-4 border-b border-line px-5 py-3.5 transition last:border-0 hover:bg-panel"
-            >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-failure" />
-
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-ink group-hover:text-ink">
-                  {execution.rootTitle ?? "Untitled execution"}
-                </div>
-
-                <div className="mt-0.5 truncate font-mono text-xs text-faint">
-                  {execution.id}
-                </div>
+              <div className="font-mono text-xs text-muted">
+                {formatDateTime(lastGood.startedAt)} ·{" "}
+                {Date.parse(lastGood.startedAt) > Date.parse(fingerprint.lastSeenAt)
+                  ? "after the last failure"
+                  : "before the last failure"}
               </div>
 
-              <span className="shrink-0 text-xs text-faint">
-                {formatDateTime(execution.startedAt)}
-              </span>
-            </Link>
+              <ButtonLink
+                href={`/executions/compare?original=${fingerprint.latestExecutionId}&candidate=${lastGood.id}`}
+                variant="primary"
+              >
+                <GitCompareArrows size={14} />
+                Diff latest failure with it
+              </ButtonLink>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">
+              No successful run of <code className="font-mono">{signature.endpoint}</code>{" "}
+              has been captured. Replay the failure in the Lab to find one.
+            </p>
+          )}
+        </Panel>
+
+        <Panel title="Signature">
+          <dl className="space-y-3 text-xs">
+            <div>
+              <dt className="text-faint">Endpoint</dt>
+              <dd className="mt-0.5 break-all font-mono text-ink-2">{signature.endpoint}</dd>
+            </div>
+
+            <div className="flex gap-6">
+              <div>
+                <dt className="text-faint">Origin</dt>
+                <dd className="mt-0.5 font-mono text-ink-2">{signature.originType}</dd>
+              </div>
+
+              <div>
+                <dt className="text-faint">HTTP status</dt>
+                <dd className="mt-0.5 font-mono text-ink-2">{signature.status ?? "—"}</dd>
+              </div>
+            </div>
+
+            <div>
+              <dt className="text-faint">Failure path</dt>
+              <dd className="mt-0.5 break-all font-mono text-ink-2">{signature.path}</dd>
+            </div>
+          </dl>
+        </Panel>
+      </div>
+
+      <Panel title="Executions that failed this way" flush>
+        <ul className="divide-y divide-line">
+          {executions.map((execution) => (
+            <li key={execution.id}>
+              <Link
+                href={`/executions/${execution.id}`}
+                className="flex items-center gap-3 px-4 py-3 transition hover:bg-raised"
+              >
+                <EventIcon
+                  type={execution.rootType ?? "http.request"}
+                  status={execution.status}
+                  size="sm"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm text-ink">
+                    {execution.rootTitle ?? "Untitled execution"}
+                  </div>
+
+                  <div className="mt-0.5 truncate font-mono text-xs text-muted">
+                    {shortId(execution.id)}
+                    {execution.environment ? ` · ${execution.environment}` : ""}
+                    {execution.isReplay ? " · replay" : ""}
+                  </div>
+                </div>
+
+                {execution.id === fingerprint.representativeExecutionId && (
+                  <Badge tone="neutral">first</Badge>
+                )}
+
+                <span className="hidden font-mono text-xs tabular-nums text-muted sm:block">
+                  {formatSpan(execution.startedAt, execution.endedAt)}
+                </span>
+
+                <span className="w-16 shrink-0 text-right font-mono text-xs tabular-nums text-muted">
+                  {formatRelative(execution.startedAt)}
+                </span>
+              </Link>
+            </li>
           ))}
-        </section>
+        </ul>
+      </Panel>
       </>
   );
 }
