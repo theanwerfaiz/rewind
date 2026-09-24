@@ -54,6 +54,13 @@ export default async function ExecutionsPage() {
             >
               Capsules
             </Link>
+
+            <Link
+              href="/verifications"
+              className="text-slate-500 transition hover:text-slate-200"
+            >
+              Verifications
+            </Link>
           </div>
 
           <div className="mt-5">

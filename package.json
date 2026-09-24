@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
+    "verify": "tsx scripts/rewind-verify.ts",
     "test": "vitest run"
   },
   "dependencies": {

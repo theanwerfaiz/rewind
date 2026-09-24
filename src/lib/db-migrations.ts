@@ -201,6 +201,41 @@ export function migrateDatabase(db: Database.Database) {
         );
     `);
 
+    // Verification runs: stored executions replayed against a candidate.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS verification_runs (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        code_version TEXT,
+        target TEXT,
+        total INTEGER NOT NULL,
+        passed INTEGER NOT NULL,
+        failed INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS verification_results (
+        run_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        execution_id TEXT NOT NULL,
+        capsule_id TEXT,
+        title TEXT NOT NULL,
+        expected_status TEXT,
+        outcome TEXT,
+        verdict TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        replay_id TEXT,
+        result_execution_id TEXT,
+
+        PRIMARY KEY (run_id, position)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_verification_runs_created_at
+        ON verification_runs(created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_verification_results_execution_id
+        ON verification_results(execution_id);
+    `);
+
     db.exec(`
       CREATE TABLE IF NOT EXISTS replay_plans (
         replay_id TEXT PRIMARY KEY,
